@@ -107,12 +107,9 @@ class Ui_ELF_Upload(object):
       print (str(fileName))
       print (file_path)
  
-    	#os.system('upload-script.py'+' '+str(fileName))   #TODO
+      os.system('upload-script.py'+' '+str(file_path))   #TODO
       ctypes.windll.user32.MessageBoxW(0, "Done!", "uploaded to server", 1)
 
-
-
-    
 
     def retranslateUi(self, ELF_Upload):
         ELF_Upload.setWindowTitle(QCoreApplication.translate("ELF_Upload", u"Form", None))
