@@ -25,19 +25,16 @@ import sys,time
 class Ui_Form(object):
     def setupUi(self, Form):
         if Form.objectName():
-            Form.setObjectName(u"Form")
+            Form.setObjectName(u"Flashing progress")
         Form.resize(519, 124)
+
         self.progressBar = QProgressBar(Form)
         self.progressBar.setObjectName(u"progressBar")
         self.progressBar.setGeometry(QRect(80, 60, 401, 41))
-     
-        
-        #self.statusLabel = QLabel("Showing Progress")
-        #self.progressBar = QProgressBar()
         self.progressBar.setMinimum(0)
         self.progressBar.setMaximum(100)
         
-        #self.createStatusBar()
+       
         
         self.worker = Worker()
         self.worker.updateProgress.connect(self.setProgress)
@@ -48,19 +45,13 @@ class Ui_Form(object):
     # setupUi
 
     def retranslateUi(self, Form):
-        Form.setWindowTitle(QCoreApplication.translate("Form", u"Form", None))
+        Form.setWindowTitle(QCoreApplication.translate("Form", u"Flashing progress", None))
         self.progressBar.setValue(0)
    # retranslateUi
     
     def setProgress(self, progress):
         self.progressBar.setValue(progress)
-        
-    def createStatusBar(self):
-        #self.statusBar = QStatusBar()
-        self.progressBar.setValue(50)
-        #self.statusBar.addWidget(self.statusLabel, 1)
-        #self.statusBar.addWidget(self.progressBar, 2)
-        #self.setStatusBar(self.statusBar)
+
 
 #Inherit from QThread
 class Worker(QtCore.QThread):
@@ -88,16 +79,20 @@ class Worker(QtCore.QThread):
             self.updateProgress.emit(i)
             time.sleep(0.1)
         '''
-        progress_int=0
-        while progress_int != 100:
+        progress=0
+        while progress != 100:
             f=open('progress.txt', 'r')
-            progress=f.readline()
+            progress=int(f.readline())
             f.close()
-            progress_int=int(progress.strip())
-            self.updateProgress.emit(progress_int)
+            self.updateProgress.emit(progress)
             time.sleep(0.75)
-            
-            
+        if progress == 100:
+            Widget.close()
+            f=open('progress.txt', 'w')
+            f.write('0')
+            f.close()
+
+
 app=QApplication(sys.argv)   #create app and return handeler but it need list of argv
 Widget=QWidget()  # create widget
 Form=Ui_Form()  # create form
