@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 ################################################################################
 ## Form generated from reading UI file 'ELf.ui'
 ##
@@ -111,7 +109,8 @@ class Ui_ELF_Upload(object):
       print (str(fileName))
       print (file_path)
  
-      os.system('upload-script.py'+' '+str(file_path))   #TODO
+      #os.system('upload-script.py'+' '+str(file_path))   #TODO
+      os.system('progress.py')
       ctypes.windll.user32.MessageBoxW(0, "Done!", "uploaded to server", 1)
 
 
@@ -137,5 +136,6 @@ Form=Ui_ELF_Upload()  # create form
 Form.setupUi(Widget)   # to create form inside widget
 Widget.show()
 sys.exit(app.exec_()) 
+
 
 
