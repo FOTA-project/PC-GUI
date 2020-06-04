@@ -82,19 +82,23 @@ class Ui_ELF_Upload(object):
 
     # setupUi
 
-    
-
     def Browse_Handler(self):
     	#fileName = QtGui.QFileDialog.getOpenFileName()
     	
 
     	#path_to_file, _ = QFileDialog.getOpenFileName(self, self.tr("Load Image"), self.tr("~/Desktop/"), self.tr("Images (*.jpg)"))
+      
+      global asd
       global file_path
       global fileName
       root = tk.Tk()
       root.withdraw()
-      file_path = filedialog.askopenfilename()
+      #file_path = filedialog.askopenfilename()
+      
+      root.filepath = filedialog.askopenfilename(initialdir = "/",title = "Select file",filetypes = (("Elf files","*.elf"),("all files","*.*")))
+      file_path = root.filepath
       fileName = ntpath.basename(str(file_path))
+      
       #print (file_path)
       #print (str(fileName))
 
@@ -107,12 +111,9 @@ class Ui_ELF_Upload(object):
       print (str(fileName))
       print (file_path)
  
-    	#os.system('upload-script.py'+' '+str(fileName))   #TODO
+      os.system('upload-script.py'+' '+str(file_path))   #TODO
       ctypes.windll.user32.MessageBoxW(0, "Done!", "uploaded to server", 1)
 
-
-
-    
 
     def retranslateUi(self, ELF_Upload):
         ELF_Upload.setWindowTitle(QCoreApplication.translate("ELF_Upload", u"Form", None))
