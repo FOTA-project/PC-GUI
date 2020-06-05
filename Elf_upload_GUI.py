@@ -13,26 +13,14 @@ from PySide2.QtGui import (QBrush, QColor, QConicalGradient, QFont,
     QRadialGradient)
     
 from PySide2.QtWidgets import *
-#from PyQt5 import QtWidgets,QtCore, QtGui
 from PySide2.QtWidgets import QMainWindow, QFileDialog, QWidget, QVBoxLayout, QGraphicsScene, QGraphicsView
 from PySide2 import QtCore, QtGui, QtWidgets
-#from PySide2 import QtCore,  QFileDialog
-
-import sys
-import os 
-
-import ntpath
-
-import ctypes  # An included library with Python install.   
 
 
-
+import sys,os,ntpath,ctypes
 import tkinter as tk
 from tkinter import filedialog
 
-
-file_path = 0
-fileName = 0
 
 
 class Ui_ELF_Upload(object):
@@ -41,6 +29,9 @@ class Ui_ELF_Upload(object):
             ELF_Upload.setObjectName(u"ELF_Upload")
         ELF_Upload.setEnabled(True)
         ELF_Upload.resize(601, 334)
+        self.setIconModes(ELF_Upload)
+        
+        
         self.upload_pushButton = QPushButton(ELF_Upload)
         self.upload_pushButton.setObjectName(u"upload_pushButton")
         self.upload_pushButton.setGeometry(QRect(170, 230, 231, 41))
@@ -49,6 +40,7 @@ class Ui_ELF_Upload(object):
         font.setBold(True)
         font.setWeight(75);
         self.upload_pushButton.setFont(font)
+        
         self.Browse_pushButton = QPushButton(ELF_Upload)
         self.Browse_pushButton.setObjectName(u"Browse_pushButton")
         self.Browse_pushButton.setGeometry(QRect(170, 160, 231, 41))
@@ -73,60 +65,58 @@ class Ui_ELF_Upload(object):
         self.retranslateUi(ELF_Upload)
 
         QMetaObject.connectSlotsByName(ELF_Upload)
-
+        
         ## we edit here 
         self.upload_pushButton.clicked.connect(self.Upload_Handler)
         self.Browse_pushButton.clicked.connect(self.Browse_Handler)
+        
+        self.setIcon(ELF_Upload)
+       
 
     # setupUi
-
-    def Browse_Handler(self):
-    	#fileName = QtGui.QFileDialog.getOpenFileName()
-    	
-
-    	#path_to_file, _ = QFileDialog.getOpenFileName(self, self.tr("Load Image"), self.tr("~/Desktop/"), self.tr("Images (*.jpg)"))
+    
+    def setIcon(self,ELF_Upload):
+      appIcon = QIcon("icon.png")
+      ELF_Upload.setWindowIcon(appIcon)
       
-      global asd
+    def setIconModes(self,ELF_Upload):
+        icon = QtGui.QPixmap("icon.png")
+        label = QtWidgets.QLabel('Sample', ELF_Upload)
+        pixmap = icon.scaled(601, 334, QtCore.Qt.KeepAspectRatio) 
+        label.setPixmap(pixmap)    
+        label.show()
+        '''
+        icon2 = QIcon("icon.png")
+        label2 = QLabel('Sample', ELF_Upload)
+        pixmap2 = icon2.pixmap(1000, 1000, QIcon.Disabled, QIcon.Off)
+        label2.setPixmap(pixmap2)
+        label2.move(100,0)
+        '''
+    
+    def Browse_Handler(self):
       global file_path
-      global fileName
       root = tk.Tk()
       root.withdraw()
-      #file_path = filedialog.askopenfilename()
-      
       root.filepath = filedialog.askopenfilename(initialdir = "/",title = "Select file",filetypes = (("Elf files","*.elf"),("all files","*.*")))
       file_path = root.filepath
-      fileName = ntpath.basename(str(file_path))
-      
-      #print (file_path)
-      #print (str(fileName))
-
-    	#fileName = QFileDialog.getOpenFileName(self,self.tr("Open File"), "/Users/pc/Desktop/ELF_GUI", self.tr("ELF Files (*.elf)"))
-    	#self.ui.lineEdit.setText(fileName)
 
 
-    def Upload_Handler(self):	
-
-      print (str(fileName))
-      print (file_path)
- 
-      #os.system('upload-script.py'+' '+str(file_path))   #TODO
-      os.system('progress.py')
+    def Upload_Handler(self):
+      os.system('upload-script.py'+' '+str(file_path))   #TODO
       ctypes.windll.user32.MessageBoxW(0, "Done!", "uploaded to server", 1)
+      os.system('progress.py')
 
 
     def retranslateUi(self, ELF_Upload):
-        ELF_Upload.setWindowTitle(QCoreApplication.translate("ELF_Upload", u"Form", None))
+        ELF_Upload.setWindowTitle(QCoreApplication.translate("ELF_Upload", u"FOTA PC-GUI", None))
         self.upload_pushButton.setText(QCoreApplication.translate("ELF_Upload", u"Upload", None))
-#if QT_CONFIG(tooltip)
         self.Browse_pushButton.setToolTip(QCoreApplication.translate("ELF_Upload", u"<html><head/><body><p align=\"center\"><span style=\" font-size:24pt; font-weight:600;\">Browse</span></p></body></html>", None))
-#endif // QT_CONFIG(tooltip)
         self.Browse_pushButton.setText(QCoreApplication.translate("ELF_Upload", u"Browse", None))
         self.comboBox.setItemText(0, QCoreApplication.translate("ELF_Upload", u"STM32", None))
         self.comboBox.setItemText(1, QCoreApplication.translate("ELF_Upload", u"ATmega32", None))
 
         self.comboBox.setCurrentText(QCoreApplication.translate("ELF_Upload", u"STM32", None))
         self.label.setText(QCoreApplication.translate("ELF_Upload", u"Microcontrollers ", None))
-        
 
 
 

@@ -42,8 +42,14 @@ class Ui_Form(object):
         self.retranslateUi(Form)
         
         QMetaObject.connectSlotsByName(Form)
+        
+        self.setIcon(Form)
     # setupUi
-
+    
+    def setIcon(self,GUI):
+        appIcon = QIcon("icon.png")
+        GUI.setWindowIcon(appIcon)
+    
     def retranslateUi(self, Form):
         Form.setWindowTitle(QCoreApplication.translate("Form", u"Flashing progress", None))
         self.progressBar.setValue(0)
