@@ -21,6 +21,18 @@ import sys,os,ntpath,ctypes
 import tkinter as tk
 from tkinter import filedialog
 
+import threading
+import subprocess
+
+import time
+
+
+def thread_second(name):
+    subprocess.call(str(str('python ') + str(name)))
+    processThread = threading.Thread(target=thread_second, args=(1,))  # <- note extra ','
+    processThread.start()
+
+    #print 'the file is run in the background'
 
 class Ui_GUI(object):
     def setupUi(self, GUI):
@@ -116,13 +128,15 @@ class Ui_GUI(object):
       root.filepath = filedialog.askopenfilename(initialdir = "/",title = "Select file",filetypes = (("Elf files","*.elf"),("all files","*.*")))
       file_path = root.filepath
 
-
     def Upload_Handler(self):
-        #os.system('upload-script.py'+' '+str(file_path))   #TODO
+        os.system('upload-script.py'+' '+str(file_path))   #TODO
         ctypes.windll.user32.MessageBoxW(0, "Done!", "uploaded to server", 1)
-        os.system('progress.py')
+        #os.system('progress.py')
+        time.sleep(1)
+        thread_second(str('progress-script.py'))
+        subprocess.call('python progress.py')
+        #os.system('upload-script.py'+' '+str(file_path))   #TODO
     
-
     def retranslateUi(self, GUI):
         GUI.setWindowTitle(QCoreApplication.translate("GUI", u"FOTA PC-GUI", None))
         self.upload_pushButton.setText(QCoreApplication.translate("GUI", u"Upload", None))

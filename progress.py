@@ -22,8 +22,16 @@ from PySide2.QtGui import QIcon
 
 import sys,time
 
+INSTRUCTION_WRITE_MAX_REQUESTS    = -4
+INSTRUCTION_COMM_TIMEOUT          = -2
+INSTRUCTION_TERMINATE_ON_SUCCESS  = -3
+
 class Ui_Form(object):
     def setupUi(self, Form):
+        global f
+        global maxRequests
+        f = open('progress.txt', 'r')
+        maxRequests = int(f.readline().strip().split()[1])
         if Form.objectName():
             Form.setObjectName(u"Flashing progress")
         Form.resize(519, 124)
@@ -32,9 +40,8 @@ class Ui_Form(object):
         self.progressBar.setObjectName(u"progressBar")
         self.progressBar.setGeometry(QRect(80, 60, 401, 41))
         self.progressBar.setMinimum(0)
-        self.progressBar.setMaximum(100)
+        self.progressBar.setMaximum(maxRequests)
         
-       
         
         self.worker = Worker()
         self.worker.updateProgress.connect(self.setProgress)
@@ -85,18 +92,31 @@ class Worker(QtCore.QThread):
             self.updateProgress.emit(i)
             time.sleep(0.1)
         '''
-        progress=0
-        while progress != 100:
-            f=open('progress.txt', 'r')
-            progress=int(f.readline())
-            f.close()
-            self.updateProgress.emit(progress)
-            time.sleep(0.75)
-        if progress == 100:
-            Widget.close()
-            f=open('progress.txt', 'w')
-            f.write('0')
-            f.close()
+        progress = 0
+        #f.seek(0)
+        
+        print("progress.py: maxRequests = %d\n" %(maxRequests))
+        
+        while progress != maxRequests:
+            progress = f.readline()
+            
+            if progress == '':
+                time.sleep(0.001 * 50) # 50ms
+                continue
+            if int(progress[:2], 10) == INSTRUCTION_COMM_TIMEOUT:
+                # TODO handle this
+                Widget.close()
+                f.close()
+            elif int(progress[:2], 10) == INSTRUCTION_TERMINATE_ON_SUCCESS:
+                Widget.close()
+                f.close()
+                ##
+            else: # normal number
+                self.updateProgress.emit(int(progress))
+                #time.sleep(0.75)
+                
+            #f = open('progress.txt', 'w')
+            #f.write('0')
 
 
 app=QApplication(sys.argv)   #create app and return handeler but it need list of argv
