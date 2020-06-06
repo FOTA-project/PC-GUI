@@ -1,6 +1,9 @@
 import time
 import pyrebase
 
+progressInstructionFile = open('progress.txt', 'w')
+progressInstructionFile.seek(0, 0)
+
 # upload
 firebaseConfig = {
     "apiKey": "AIzaSyBgBFhNa6OnJCLbFTQW3vF_Cyz-rMyN4vU",
@@ -41,14 +44,11 @@ previousElfProgress = -1
 timeoutCtr = 0
 
 
-progressInstructionFile = open('progress.txt', 'w')
-progressInstructionFile.seek(0, 0)
-
 progressInstructionFile.write("%d %d\n" %(INSTRUCTION_WRITE_MAX_REQUESTS, elfProgressMaxRequest))
 
 while isTerminate == 0:
     elfProgress = db.child(user_db_dir + "/elfProgress").get(user_tokenId).val()
-    print("elfProgress = %d, timeoutCtr = %d\n" %(elfProgress, timeoutCtr))
+    #print("elfProgress = %d, timeoutCtr = %d\n" %(elfProgress, timeoutCtr))
     
     if previousElfProgress != elfProgress:
         timeoutCtr = 0
@@ -65,6 +65,7 @@ while isTerminate == 0:
 
 
 # end of while
+#print("progress-script.py: elfProgress = %d, elfProgressMaxRequest = %d\n" %(elfProgress, elfProgressMaxRequest))
 if elfProgress == elfProgressMaxRequest:
     progressInstructionFile.write("%d\n" %(INSTRUCTION_TERMINATE_ON_SUCCESS))
     
@@ -74,4 +75,4 @@ else:
     progressInstructionFile.write("%d\n" %(INSTRUCTION_COMM_TIMEOUT))
 
 #### done
-print("done...\n")
+print("progress-script.py: done...\n")

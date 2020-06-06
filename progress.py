@@ -20,7 +20,7 @@ from PySide2.QtWidgets import QApplication, QMainWindow, QProgressBar, QStatusBa
 import sys
 from PySide2.QtGui import QIcon
 
-import sys,time
+import sys, time, os
 
 INSTRUCTION_WRITE_MAX_REQUESTS    = -4
 INSTRUCTION_COMM_TIMEOUT          = -2
@@ -28,10 +28,6 @@ INSTRUCTION_TERMINATE_ON_SUCCESS  = -3
 
 class Ui_Form(object):
     def setupUi(self, Form):
-        global f
-        global maxRequests
-        f = open('progress.txt', 'r')
-        maxRequests = int(f.readline().strip().split()[1])
         if Form.objectName():
             Form.setObjectName(u"Flashing progress")
         Form.resize(519, 124)
@@ -40,8 +36,7 @@ class Ui_Form(object):
         self.progressBar.setObjectName(u"progressBar")
         self.progressBar.setGeometry(QRect(80, 60, 401, 41))
         self.progressBar.setMinimum(0)
-        self.progressBar.setMaximum(maxRequests)
-        
+        #self.progressBar.setMaximum(700)
         
         self.worker = Worker()
         self.worker.updateProgress.connect(self.setProgress)
@@ -62,7 +57,8 @@ class Ui_Form(object):
         self.progressBar.setValue(0)
    # retranslateUi
     
-    def setProgress(self, progress):
+    def setProgress(self, progress, max):
+        self.progressBar.setMaximum(max)
         self.progressBar.setValue(progress)
 
 
@@ -72,7 +68,7 @@ class Worker(QtCore.QThread):
     #This is the signal that will be emitted during the processing.
     #By including int as an argument, it lets the signal know to expect
     #an integer argument when emitting.
-    updateProgress = QtCore.Signal(int)
+    updateProgress = QtCore.Signal(int, int)
 
     #You can do any extra things in this init you need, but for this example
     #nothing else needs to be done expect call the super's init
@@ -83,6 +79,7 @@ class Worker(QtCore.QThread):
     #function in it's own "thread". 
  
     def run(self):
+        global f
         #Notice this is the same thing you were doing in your progress() function
         
         #self.updateProgress.emit(progress)
@@ -92,28 +89,37 @@ class Worker(QtCore.QThread):
             self.updateProgress.emit(i)
             time.sleep(0.1)
         '''
-        progress = 0
-        #f.seek(0)
+        f = open('progress.txt', 'w+')
+        #f = os.fdopen(os.open('progress.txt', os.O_RDWR | os.O_CREAT), 'w+')
+        f.seek(0)
         
-        print("progress.py: maxRequests = %d\n" %(maxRequests))
+        progress = 0
+        maxRequests = -1
         
         while progress != maxRequests:
-            progress = f.readline()
+            progress = f.readline().strip()
             
             if progress == '':
                 time.sleep(0.001 * 50) # 50ms
                 continue
-            if int(progress[:2], 10) == INSTRUCTION_COMM_TIMEOUT:
+            elif int(progress[:2], 10) == INSTRUCTION_WRITE_MAX_REQUESTS:
+                maxRequests = int(progress.split()[1])
+                print("progress.py: maxRequests = %d\n" %(maxRequests))
+            elif int(progress[:2], 10) == INSTRUCTION_COMM_TIMEOUT:
                 # TODO handle this
                 Widget.close()
-                f.close()
+                print("Widget.close() ------ 1\n")
+                #f.close()
             elif int(progress[:2], 10) == INSTRUCTION_TERMINATE_ON_SUCCESS:
                 Widget.close()
-                f.close()
+                print("Widget.close() ------ 2\n")
+                #f.close()
                 ##
             else: # normal number
-                self.updateProgress.emit(int(progress))
-                #time.sleep(0.75)
+                self.updateProgress.emit(int(progress), int(maxRequests))
+                #Form.setProgress( int(progress) )
+                print("progress.py: progress = %d\n" %(int(progress)))
+                time.sleep(0.01)
                 
             #f = open('progress.txt', 'w')
             #f.write('0')

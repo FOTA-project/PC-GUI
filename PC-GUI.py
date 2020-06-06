@@ -27,12 +27,13 @@ import subprocess
 import time
 
 
-def thread_second(name):
-    subprocess.call(str(str('python ') + str(name)))
-    processThread = threading.Thread(target=thread_second, args=(1,))  # <- note extra ','
-    processThread.start()
+file_path = ''
 
-    #print 'the file is run in the background'
+def progress_script_thread():
+    os.system('progress-script.py')
+
+def progress_thread():
+    os.system('progress.py')
 
 class Ui_GUI(object):
     def setupUi(self, GUI):
@@ -129,12 +130,23 @@ class Ui_GUI(object):
       file_path = root.filepath
 
     def Upload_Handler(self):
-        os.system('upload-script.py'+' '+str(file_path))   #TODO
+        os.system('upload-script.py' + ' ' + str(file_path))   #TODO
         ctypes.windll.user32.MessageBoxW(0, "Done!", "uploaded to server", 1)
         #os.system('progress.py')
         time.sleep(1)
-        thread_second(str('progress-script.py'))
-        subprocess.call('python progress.py')
+        
+        #processThread = threading.Thread(target=progress_script_thread)
+        #processThread.start()
+        
+        processThread = threading.Thread(target=progress_thread)
+        processThread.start()
+        
+        #time.sleep(1)
+
+        #os.system('progress.py')
+        progress_script_thread()
+        
+        #processThread.stop()
         #os.system('upload-script.py'+' '+str(file_path))   #TODO
     
     def retranslateUi(self, GUI):
