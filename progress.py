@@ -98,9 +98,10 @@ class Worker(QtCore.QThread):
         
         while progress != maxRequests:
             progress = f.readline().strip()
+            f.flush()
             
             if progress == '':
-                time.sleep(0.001 * 50) # 50ms
+                time.sleep(0.000001 * 500) # 500us
                 continue
             elif int(progress[:2], 10) == INSTRUCTION_WRITE_MAX_REQUESTS:
                 maxRequests = int(progress.split()[1])
@@ -119,7 +120,7 @@ class Worker(QtCore.QThread):
                 self.updateProgress.emit(int(progress), int(maxRequests))
                 #Form.setProgress( int(progress) )
                 print("progress.py: progress = %d\n" %(int(progress)))
-                time.sleep(0.01)
+                time.sleep(0.000001 * 500) # 500us
                 
             #f = open('progress.txt', 'w')
             #f.write('0')

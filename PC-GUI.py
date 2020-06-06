@@ -138,13 +138,18 @@ class Ui_GUI(object):
         #processThread = threading.Thread(target=progress_script_thread)
         #processThread.start()
         
-        processThread = threading.Thread(target=progress_thread)
-        processThread.start()
+        progressScriptThreadHandle = threading.Thread(target=progress_script_thread)
+        progressThreadHandle = threading.Thread(target=progress_thread)
+        
+        progressScriptThreadHandle.start()
+        #time.sleep(15)
+        time.sleep(1)
+        progressThreadHandle.start()
         
         #time.sleep(1)
 
         #os.system('progress.py')
-        progress_script_thread()
+        #progress_script_thread()
         
         #processThread.stop()
         #os.system('upload-script.py'+' '+str(file_path))   #TODO

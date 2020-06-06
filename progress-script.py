@@ -45,6 +45,7 @@ timeoutCtr = 0
 
 
 progressInstructionFile.write("%d %d\n" %(INSTRUCTION_WRITE_MAX_REQUESTS, elfProgressMaxRequest))
+progressInstructionFile.flush()
 
 while isTerminate == 0:
     elfProgress = db.child(user_db_dir + "/elfProgress").get(user_tokenId).val()
@@ -54,10 +55,11 @@ while isTerminate == 0:
         timeoutCtr = 0
         previousElfProgress = elfProgress
         progressInstructionFile.write("%d\n" %(elfProgress))
+        progressInstructionFile.flush()
     elif elfProgress == elfProgressMaxRequest:
         isTerminate = 1
     else:
-        time.sleep(0.000001 * 100)
+        time.sleep(0.000001 * 500) # 500us
         timeoutCtr = timeoutCtr + 1
 
     if timeoutCtr == 500:
@@ -68,11 +70,13 @@ while isTerminate == 0:
 #print("progress-script.py: elfProgress = %d, elfProgressMaxRequest = %d\n" %(elfProgress, elfProgressMaxRequest))
 if elfProgress == elfProgressMaxRequest:
     progressInstructionFile.write("%d\n" %(INSTRUCTION_TERMINATE_ON_SUCCESS))
+    progressInstructionFile.flush()
     
     # update elfProgress flag in database
     db.child(user_db_dir).update({"elfProgress" : 0}, user_tokenId)
 else:
     progressInstructionFile.write("%d\n" %(INSTRUCTION_COMM_TIMEOUT))
+    progressInstructionFile.flush()
 
 #### done
 print("progress-script.py: done...\n")
