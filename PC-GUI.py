@@ -141,8 +141,8 @@ class Ui_GUI(object):
         progressScriptThreadHandle = threading.Thread(target=progress_script_thread)
         progressThreadHandle = threading.Thread(target=progress_thread)
         
+        time.sleep(13)
         progressScriptThreadHandle.start()
-        #time.sleep(15)
         time.sleep(1)
         progressThreadHandle.start()
         

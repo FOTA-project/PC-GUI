@@ -1,8 +1,13 @@
 import time
 import pyrebase
 
+# create new file
+progressInstructionFile = open('progress.txt', 'w')
+progressInstructionFile.close()
+
 progressInstructionFile = open('progress.txt', 'w')
 progressInstructionFile.seek(0, 0)
+progressInstructionFile.flush()
 
 # upload
 firebaseConfig = {
@@ -62,7 +67,7 @@ while isTerminate == 0:
         time.sleep(0.000001 * 500) # 500us
         timeoutCtr = timeoutCtr + 1
 
-    if timeoutCtr == 500:
+    if timeoutCtr == 1000: #500ms
         isTerminate = 1
 
 
