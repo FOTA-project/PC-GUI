@@ -16,7 +16,7 @@ import threading , subprocess , time
 import sys,os,ntpath,ctypes
 import tkinter as tk
 from tkinter import filedialog
-
+from tkinter import *
 
 
 
@@ -142,7 +142,8 @@ class Ui_MainWindow(object):
       global file_path
       root = tk.Tk()
       root.withdraw()
-      root.filepath = filedialog.askopenfilename(initialdir = "/",title = "Select file",filetypes = (("Elf files","*.elf"),("all files")))
+      root.tk.call('wm', 'iconphoto', root._w, PhotoImage(file='icon.png'))
+      root.filepath = filedialog.askopenfilename(initialdir = "/",title = "Select file",filetypes = ([("Elf files","*.elf")]))
       file_path = root.filepath      
 
 
@@ -170,8 +171,8 @@ class Ui_MainWindow(object):
 
 
 
-        progressScriptThreadHandle = threading.Thread(target=progress_script_thread)
-        progressThreadHandle = threading.Thread(target=progress_thread)
+        progressScriptThreadHandle = threading.Thread(target=progress_script.ReadProgress(user))
+        progressThreadHandle = threading.Thread(target= progress.ShowProgressBar())
         
         #time.sleep(13)
         progressScriptThreadHandle.start()

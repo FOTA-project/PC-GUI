@@ -7,7 +7,7 @@ from pathlib import Path
 def UploadElfFile(file_path, user):# TODO >> ADD MULTIPLE USERS
     print("Upload-script.py: user = %d\n" %(user))
     print("Upload-script.py: file_path = %s\n" %(file_path))   
-    ''' 
+    
     #argv = sys.argv
     #argc = len(argv)
 
@@ -15,6 +15,7 @@ def UploadElfFile(file_path, user):# TODO >> ADD MULTIPLE USERS
     #   exit(1)
 
     # upload
+    '''
     firebaseConfig = {
         "apiKey": "AIzaSyBgBFhNa6OnJCLbFTQW3vF_Cyz-rMyN4vU",
         "authDomain": "fota-server-b4148.firebaseapp.com",
@@ -52,10 +53,9 @@ def UploadElfFile(file_path, user):# TODO >> ADD MULTIPLE USERS
     db.child(isNewElf_flag).update({"isNewElf" : 1}, user_tokenId)
 
     #######exit(0)  ????
- 
     '''
     print("Upload_Script finished\n")
-    isNewElf_flag=1  
+    isNewElf_flag=1
     return isNewElf_flag 
     
     

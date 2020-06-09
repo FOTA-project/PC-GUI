@@ -88,6 +88,5 @@ def ReadProgress(user):# TODO >> ADD MULTIPLE USERS
         progressInstructionFile.flush()
 
     #### done
-
     '''
     print("progress_script.py: done...\n")
