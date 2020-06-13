@@ -1,0 +1,39 @@
+1) pyrebase4 
+
+https://github.com/thisbejim/Pyrebase/issues/299
+https://github.com/nhorvath/Pyrebase4
+
+********** important steps *****************
+
+* install  python 3.7.1
+* pip install pyrebase4 
+
+************** may be needed ****************
+
+pip3 install --upgrade setuptools
+
+pip3 install --upgrade gcloud
+
+pip install wheel 
+
+----------------------------------------------------------------------------
+
+2) pyinstaller
+
+pip install pyinstaller 
+
+setup for python 3.7 :
+----------------------
+https://stackoverflow.com/questions/37815371/pyinstaller-failed-to-execute-script-pyi-rth-pkgres-and-missing-packages
+
+
+solve google-cloud issue :
+-------------------------- 
+https://github.com/googleapis/google-cloud-python/issues/4780 
+
+to generate .exe file :
+-----------------------
+pyinstaller PC-GUI.py -w --name FOTA
+
+then add the icon to dist folder
+----------------------------------------------------------------------------
