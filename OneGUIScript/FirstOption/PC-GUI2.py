@@ -161,7 +161,8 @@ class Ui_MainWindow(object):
         
         if state == 1:    
             #self.Status.setText(' Uploading Finished ....')        
-            ctypes.windll.user32.MessageBoxW(0, "Done!", "uploading ELf file ", 0)
+            x=ctypes.windll.user32.MessageBoxW(0, "Done!", "uploading ELf file ", 4)
+            print(x)
             
             self.Status.setText(' Flashing ......') 
             

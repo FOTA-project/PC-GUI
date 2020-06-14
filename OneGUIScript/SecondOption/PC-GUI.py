@@ -154,8 +154,6 @@ class Ui_MainWindow(object):
 
   
     def setProgress(self, progress, max):
-        #print('Progress = '+str(progress))
-        #print('JOHN Progress = ' + str(progress))
         self.progressBar.setMaximum(max)
         self.progressBar.setValue(progress)
         
@@ -179,14 +177,26 @@ class Ui_MainWindow(object):
         for userName in userNameUID:
             self.comboBox.setItemText(i, QCoreApplication.translate("MainWindow", userName, None))
             i = i + 1
-        
-        #self.comboBox.setItemText(0, QCoreApplication.translate("MainWindow", u"USER_1", None))
-        #self.comboBox.setItemText(1, QCoreApplication.translate("MainWindow", u"USER_2", None))
-        #self.comboBox.setItemText(2, QCoreApplication.translate("MainWindow", u"USER_3", None))
 
         self.label.setText(QCoreApplication.translate("MainWindow", u"    USERS", None))
         self.label_2.setText(QCoreApplication.translate("MainWindow", u"  Status", None))
         self.lineEdit.setText(QCoreApplication.translate("MainWindow", u"        Idle", None))
+        
+        ElfProgress = db.child(user_db_dir + "/elfProgress").get(admin_tokenId).val()
+        userChoice=0
+        if ElfProgress != 0:
+            userChoice=ctypes.windll.user32.MessageBoxW(0, "Do you want to resume ?", "Error in previous flashing process", 4)
+            #Yes response
+            if userChoice==6:
+                db.child(user_db_dir).update({"isNewElf" : 1}, admin_tokenId)
+                self.worker.updateProgress.connect(self.setProgress)
+                self.worker.start()
+            
+            elif userChoice==7:
+                db.child(user_db_dir).update({"elfProgress" : 0}, admin_tokenId)
+
+        
+        
     # retranslateUi
     
     def UploadElfFile(self, file_path, user_uid):
