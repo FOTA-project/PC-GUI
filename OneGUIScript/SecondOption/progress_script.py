@@ -1,10 +1,10 @@
 import time
-#import pyrebase
+import pyrebase
 
 
 def ReadProgress(user):# TODO >> ADD MULTIPLE USERS
     print("progress-script.py: user = %d\n" %(user))
-    '''    
+      
     # create new file
     progressInstructionFile = open('progress.txt', 'w')
     progressInstructionFile.close()
@@ -88,5 +88,5 @@ def ReadProgress(user):# TODO >> ADD MULTIPLE USERS
         progressInstructionFile.flush()
 
     #### done
-    '''
+
     print("progress_script.py: done...\n")

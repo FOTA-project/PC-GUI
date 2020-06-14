@@ -1,36 +1,22 @@
-# -*- coding: utf-8 -*-
 
-################################################################################
-## Form generated from reading UI file 'PC-GUI.ui'
-##
-## Created by: Qt User Interface Compiler version 5.14.0
-##
-## WARNING! All changes made in this file will be lost when recompiling UI file!
-################################################################################
-
-from PySide2.QtCore import (QCoreApplication, QMetaObject, QObject, QPoint,QThread,
-    QRect, QSize, QUrl, Qt)
+from PySide2.QtCore import (QCoreApplication, QMetaObject, QObject, QPoint, QThread, QRect, QSize, QUrl, Qt)
 from PySide2.QtGui import (QBrush, QColor, QConicalGradient, QFont,
-    QFontDatabase, QIcon, QLinearGradient, QPalette, QPainter, QPixmap,
-    QRadialGradient)
+                           QFontDatabase, QIcon, QLinearGradient, QPalette, QPainter, QPixmap, QRadialGradient)
 from PySide2.QtWidgets import *
+from PySide2 import QtCore ,QtWidgets
 
-from PySide2 import QtCore, QtGui, QtWidgets
+import sys , time , threading
 
-
-import sys,os,ntpath,ctypes
 import tkinter as tk
 from tkinter import filedialog
-from tkinter import *
+from tkinter import PhotoImage
 
-#import ProgressScript,UploadScript
+from ctypes import windll
 
-import threading
-import subprocess
-
-import sys, time, os
 import progress_script
 import upload_script
+
+
 
 file_path = ''
 
@@ -134,23 +120,26 @@ class Ui_MainWindow(object):
         state=upload_script.UploadElfFile(file_path,user)
         
         if state == 1: #There is an error
-            self.lineEdit.setText(QCoreApplication.translate("MainWindow", u" Error.. ", None))
-            #TODO:program should exit
+            self.lineEdit.setText(QCoreApplication.translate("MainWindow", u" Error.. ", None)) 
+            
+            #TODO: Add message to complete or cancelling in case of errors
             #value=ctypes.windll.user32.MessageBoxW(0, "Done!", "uploaded to server", 1)
+            
         else:
+            #TODO : edit progress to move from 0 to 100 
             self.progressBar.setMaximum(100)
             self.progressBar.setValue(100)
             time.sleep(1)
+            
             self.lineEdit.setText(QCoreApplication.translate("MainWindow", u" Upload done ", None))
             self.progressBar.reset()
+            time.sleep(1)
             
             #progress-script.py
             self.lineEdit.setText(QCoreApplication.translate("MainWindow", u" Flashing.....", None))
-            #progressScriptThreadHandle = threading.Thread(target=progress_script.ReadProgress(user))
+            progressScriptThreadHandle = threading.Thread(target=progress_script.ReadProgress(user))
+            progressScriptThreadHandle.start()
 
-            #time.sleep(13)
-            #progressScriptThreadHandle.start()
-            #time.sleep(1)
         
             #progress.py
             self.worker.updateProgress.connect(self.setProgress)
@@ -217,7 +206,7 @@ class Worker(QtCore.QThread):
                 self.updateProgress.emit(int(progress), int(maxRequests))
                 #Form.setProgress( int(progress) )
                 print("progress.py: progress = %d\n" %(int(progress)))
-                #time.sleep(0.000001 * 500) # 500us
+                time.sleep(0.5) # 500us
                 
             #f = open('progress.txt', 'w')
             #f.write('0')
