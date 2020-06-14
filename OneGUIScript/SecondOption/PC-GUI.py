@@ -1,4 +1,5 @@
-
+import pyrebase
+from pathlib import Path
 from PySide2.QtCore import (QCoreApplication, QMetaObject, QObject, QPoint, QThread, QRect, QSize, QUrl, Qt)
 from PySide2.QtGui import (QBrush, QColor, QConicalGradient, QFont,
                            QFontDatabase, QIcon, QLinearGradient, QPalette, QPainter, QPixmap, QRadialGradient)
@@ -13,8 +14,8 @@ from tkinter import PhotoImage
 
 from ctypes import windll
 
-import progress_script
-import upload_script
+#import progress_script
+#import upload_script
 
 
 
@@ -26,7 +27,46 @@ INSTRUCTION_TERMINATE_ON_SUCCESS  = -3
 
 STOP_THREAD_FLAG=0
 
+# upload
+firebaseConfig = {
+    "apiKey": "AIzaSyBgBFhNa6OnJCLbFTQW3vF_Cyz-rMyN4vU",
+    "authDomain": "fota-server-b4148.firebaseapp.com",
+    "databaseURL": "https://fota-server-b4148.firebaseio.com",
+    "projectId": "fota-server-b4148",
+    "storageBucket": "fota-server-b4148.appspot.com",
+    "messagingSenderId": "774423425890",
+    "appId": "1:774423425890:web:f506832444c3d30b2c323b",
+    "measurementId": "G-2DE9D9TN6N"
+  };
+
+# admin credentials
+email = r"admin_stm32@admin-group.com"
+password = r"123lolxd"
+
+# Initialize Firebase
+firebase = pyrebase.initialize_app(firebaseConfig);
+auth = firebase.auth()
+admin = auth.sign_in_with_email_and_password(email, password)
+admin = auth.refresh(admin['refreshToken']) # optional
+
+db = firebase.database()
+storage = firebase.storage()
+
+#admin_uid = admin['userId']
+admin_tokenId = admin['idToken']
+
+user_db_dir = ''
+
+users = db.child("users").get(admin_tokenId)
+userNameUID = {}
+
+for uid, userInfo in users.val().items():
+    userNameUID[userInfo['Name']] = uid
+
+maxRequests = -1
+
 class Ui_MainWindow(object):
+
     def setupUi(self, MainWindow):
         if MainWindow.objectName():
             MainWindow.setObjectName(u"MainWindow")
@@ -50,9 +90,11 @@ class Ui_MainWindow(object):
         self.Upload_pushButton.setFont(font)
         self.Upload_pushButton.setStyleSheet(u"background-color: rgb(97, 144, 200);")
         self.comboBox = QComboBox(self.centralwidget)
+        
         self.comboBox.addItem(str())
         self.comboBox.addItem(str())
         self.comboBox.addItem(str())
+        
         self.comboBox.setObjectName(u"comboBox")
         self.comboBox.setGeometry(QRect(420, 60, 111, 31))
         font1 = QFont()
@@ -106,111 +148,155 @@ class Ui_MainWindow(object):
       global file_path
       root = tk.Tk()
       root.withdraw()
-      root.tk.call('wm', 'iconphoto', root._w, PhotoImage(file='icon.png'))
+      #root.tk.call('wm', 'iconphoto', root._w, PhotoImage(file='icon.png'))
       root.filepath = filedialog.askopenfilename(initialdir = "/",title = "Select file",filetype= ([("Elf files","*.elf")]))
       file_path = root.filepath
 
-    def Upload_Handler(self):
-        global user
-        user = self.comboBox.currentIndex()
-        
-        
-        global state
-        self.lineEdit.setText(QCoreApplication.translate("MainWindow", u" Uploading.....", None))
-        state=upload_script.UploadElfFile(file_path,user)
-        
-        if state == 1: #There is an error
-            self.lineEdit.setText(QCoreApplication.translate("MainWindow", u" Error.. ", None)) 
-            
-            #TODO: Add message to complete or cancelling in case of errors
-            #value=ctypes.windll.user32.MessageBoxW(0, "Done!", "uploaded to server", 1)
-            
-        else:
-            #TODO : edit progress to move from 0 to 100 
-            self.progressBar.setMaximum(100)
-            self.progressBar.setValue(100)
-            time.sleep(1)
-            
-            self.lineEdit.setText(QCoreApplication.translate("MainWindow", u" Upload done ", None))
-            self.progressBar.reset()
-            time.sleep(1)
-            
-            #progress-script.py
-            self.lineEdit.setText(QCoreApplication.translate("MainWindow", u" Flashing.....", None))
-            progressScriptThreadHandle = threading.Thread(target=progress_script.ReadProgress(user))
-            progressScriptThreadHandle.start()
-
-        
-            #progress.py
-            self.worker.updateProgress.connect(self.setProgress)
-            self.worker.start()
-            
-       
   
     def setProgress(self, progress, max):
         #print('Progress = '+str(progress))
+        #print('JOHN Progress = ' + str(progress))
         self.progressBar.setMaximum(max)
         self.progressBar.setValue(progress)
-        if progress >= max:
-            self.lineEdit.setText(QCoreApplication.translate("MainWindow", u"  Flash done", None))
+        
+        if progress >= max: #if finished
+            # update isNewElf flag in database
+            db.child(user_db_dir).update({"elfProgress" : 0}, admin_tokenId)
+            
+            self.lineEdit.setText(QCoreApplication.translate("MainWindow", u" Flash done", None))
+            self.worker.stop()
+        elif progress == -1: #if timed out
+            self.lineEdit.setText(QCoreApplication.translate("MainWindow", u"Flash error", None))
             self.worker.stop()
 
-    
+
     def retranslateUi(self, MainWindow):
         MainWindow.setWindowTitle(QCoreApplication.translate("MainWindow", u"FOTA PC-GUI", None))
         self.Browse_pushButton.setText(QCoreApplication.translate("MainWindow", u"Browse", None))
         self.Upload_pushButton.setText(QCoreApplication.translate("MainWindow", u"Upload", None))
-        self.comboBox.setItemText(0, QCoreApplication.translate("MainWindow", u"USER_1", None))
-        self.comboBox.setItemText(1, QCoreApplication.translate("MainWindow", u"USER_2", None))
-        self.comboBox.setItemText(2, QCoreApplication.translate("MainWindow", u"USER_3", None))
+        
+        i = 0
+        for userName in userNameUID:
+            self.comboBox.setItemText(i, QCoreApplication.translate("MainWindow", userName, None))
+            i = i + 1
+        
+        #self.comboBox.setItemText(0, QCoreApplication.translate("MainWindow", u"USER_1", None))
+        #self.comboBox.setItemText(1, QCoreApplication.translate("MainWindow", u"USER_2", None))
+        #self.comboBox.setItemText(2, QCoreApplication.translate("MainWindow", u"USER_3", None))
 
         self.label.setText(QCoreApplication.translate("MainWindow", u"    USERS", None))
         self.label_2.setText(QCoreApplication.translate("MainWindow", u"  Status", None))
         self.lineEdit.setText(QCoreApplication.translate("MainWindow", u"        Idle", None))
     # retranslateUi
+    
+    def UploadElfFile(self, file_path, user_uid):
+        global admin_tokenId
+        global user_db_dir
+        
+        local_file = file_path
+        cloud_file = "users/" + user_uid + "/file.elf"
+        user_db_dir = "users/" + user_uid + "/STM32"
+
+        # upload file
+        storage.child(cloud_file).put(local_file, admin_tokenId)
+
+        # update isNewElf flag in database
+        db.child(user_db_dir).update({"elfProgressMaxRequest" : -1}, admin_tokenId)
+        db.child(user_db_dir).update({"isNewElf" : 1}, admin_tokenId)
+        
+        isNewElf = db.child(user_db_dir + "/isNewElf").get(admin_tokenId).val()
+        
+        return (isNewElf ^ 1) #return state if uploud done or not 
+        
+
+    def Upload_Handler(self):
+        global user
+        global state
+        global maxRequests
+        global user_db_dir
+        global admin_tokenId
+        
+        user = userNameUID[self.comboBox.currentText()]
+        
+        self.progressBar.setMaximum(100)
+        self.lineEdit.setText(QCoreApplication.translate("MainWindow", u"Uploading..", None))
+        self.progressBar.reset()
+        self.progressBar.setValue(50)
+            
+        state = self.UploadElfFile(file_path, user)
+
+        if state == 1: #There is an error
+            self.lineEdit.setText(QCoreApplication.translate("MainWindow", u" Error.. ", None))
+            return
+            #TODO: Add message to complete or cancelling in case of errors
+            #value=ctypes.windll.user32.MessageBoxW(0, "Done!", "uploaded to server", 1)
+        
+        self.lineEdit.setText(QCoreApplication.translate("MainWindow", u"Upload done", None))
+        #TODO : edit progress to move from 0 to 100
+        self.progressBar.setValue(100)
+        time.sleep(1)
+
+        timeoutCtr = 0
+        isTerminate = 0
+        previousElfProgress = -1
+
+        # get max number of requests from server
+        while 1:
+            time.sleep(0.1) # 100ms
+            maxRequests = db.child(user_db_dir + "/elfProgressMaxRequest").get(admin_tokenId).val()
+            if maxRequests != -1:
+                timeoutCtr = 0
+                break
+            else: # if RPi communicator didn't update value
+                timeoutCtr = timeoutCtr + 1
+                
+            if timeoutCtr == 10: #1sec, if timed out
+                isTerminate = 1 # set the flag to skip next loop
+                self.lineEdit.setText(QCoreApplication.translate("MainWindow", u"Flash not responding", None))
+                self.progressBar.reset()
+                break
+
+        if isTerminate == 0: # if no error occured
+            self.lineEdit.setText(QCoreApplication.translate("MainWindow", u" Flashing.....", None))
+            self.progressBar.reset()
+            self.worker.updateProgress.connect(self.setProgress)
+            self.worker.start()
+        
+
+
 
 class Worker(QtCore.QThread):
     updateProgress = QtCore.Signal(int, int)
+    
     def __init__(self):
         QtCore.QThread.__init__(self)
     
     def run(self):
-        global f
-        f = open('progress.txt', 'r')
-        f.seek(0)
-        progress = 0
-        maxRequests = -1
+        global maxRequests
+        global user_db_dir
+        global admin_tokenId
         
-        while progress != maxRequests:
-            progress = f.readline().strip()
-            f.flush()
+        ElfProgress = 0
+        
+        timeoutCtr = 0
+        isTerminate = 0
+        previousElfProgress = -1
+        
+        while 1:
+            ElfProgress = db.child(user_db_dir + "/elfProgress").get(admin_tokenId).val()
             
-            if progress == '':
-                time.sleep(0.000001 * 500) # 500us
-                continue
-            elif int(progress[:2], 10) == INSTRUCTION_WRITE_MAX_REQUESTS:
-                maxRequests = int(progress.split()[1])
-                print("progress.py: maxRequests = %d\n" %(maxRequests))
-            elif int(progress[:2], 10) == INSTRUCTION_COMM_TIMEOUT:
-                # TODO handle this
-                #SecondWindow.close()
-                print("Widget.close() ------ 1\n")
-                #f.close()
-            elif int(progress[:2], 10) == INSTRUCTION_TERMINATE_ON_SUCCESS:
-                #SecondWindow.close()
-                print("Widget.close() ------ 2\n")
-                
-                #f.close()
-                ##
-            else: # normal number
-                self.updateProgress.emit(int(progress), int(maxRequests))
-                #Form.setProgress( int(progress) )
-                print("progress.py: progress = %d\n" %(int(progress)))
-                time.sleep(0.5) # 500us
-                
-            #f = open('progress.txt', 'w')
-            #f.write('0')
-    
+            if ElfProgress != previousElfProgress:
+                timeoutCtr = 0
+                previousElfProgress = ElfProgress
+                self.updateProgress.emit(int(ElfProgress), int(maxRequests))
+            else: # if no change happened
+                time.sleep(0.1) # 100ms
+                timeoutCtr = timeoutCtr + 1
+
+            if timeoutCtr == 5: #500ms, if timed out
+                self.updateProgress.emit(int(-1), int(maxRequests))
+
+
     def stop(self):
         print()
         self.requestInterruption()
@@ -220,7 +306,7 @@ class Worker(QtCore.QThread):
 
 app = QApplication(sys.argv)
 window = QMainWindow()
-Form=Ui_MainWindow()
+Form = Ui_MainWindow()
 Form.setupUi(window)
 window.show()
 sys.exit(app.exec_())
