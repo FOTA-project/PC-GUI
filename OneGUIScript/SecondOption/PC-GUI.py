@@ -169,7 +169,7 @@ class Ui_MainWindow(object):
       #root.tk.call('wm', 'iconphoto', root._w, PhotoImage(file='icon.png'))
       root.filepath = filedialog.askopenfilename(initialdir = "/",title = "Select file",filetype= ([("Elf files","*.elf")]))
       file_path = root.filepath
-      self.lineEdit_2.setText(QCoreApplication.translate("MainWindow", u"Current file:"+os.path.basename(file_path), None))
+      self.lineEdit_2.setText(QCoreApplication.translate("MainWindow",os.path.basename(file_path), None))
 
   
     def setProgress(self, progress, max):
@@ -239,7 +239,7 @@ class Ui_MainWindow(object):
         global admin_tokenId
         
         if file_path == '':
-            self.lineEdit_2.setText(QCoreApplication.translate("MainWindow", u"Error:There is no choosen ELF file ", None))
+            self.lineEdit_2.setText(QCoreApplication.translate("MainWindow", u"Select an ELF file before uploading", None))
             return
         
         user = userNameUID[self.comboBox.currentText()]
