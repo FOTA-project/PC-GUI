@@ -60,6 +60,9 @@ user_db_dir = ''
 users = db.child("users").get(admin_tokenId)
 userNameUID = {}
 
+# am empty user to solve combobox selection issue
+userNameUID[''] = ''
+
 for uid, userInfo in users.val().items():
     userNameUID[userInfo['Name']] = uid
 
@@ -136,14 +139,19 @@ class Ui_MainWindow(object):
         ## we edit here 
         self.Upload_pushButton.clicked.connect(self.Upload_Handler)
         self.Browse_pushButton.clicked.connect(self.Browse_Handler)
+        
+        # when an item in the combobox is clicked
+        self.comboBox.textActivated.connect(self.on_combobox_changed)
+        
         self.setIcon(MainWindow)
         self.worker = Worker()
+        
     # setupUi
 
     def setIcon(self,MainWindow):
         appIcon = QIcon("icon.png")
         MainWindow.setWindowIcon(appIcon)
-    
+        
     def Browse_Handler(self):
       global file_path
       root = tk.Tk()
@@ -154,6 +162,7 @@ class Ui_MainWindow(object):
 
   
     def setProgress(self, progress, max):
+        global user_db_dir
         self.progressBar.setMaximum(max)
         self.progressBar.setValue(progress)
         
@@ -164,11 +173,14 @@ class Ui_MainWindow(object):
             self.lineEdit.setText(QCoreApplication.translate("MainWindow", u" Flash done", None))
             self.worker.stop()
         elif progress == -1: #if timed out
+            self.progressBar.setValue(0)
             self.lineEdit.setText(QCoreApplication.translate("MainWindow", u"Flash error", None))
             self.worker.stop()
 
 
     def retranslateUi(self, MainWindow):
+        global user_db_dir
+        
         MainWindow.setWindowTitle(QCoreApplication.translate("MainWindow", u"FOTA PC-GUI", None))
         self.Browse_pushButton.setText(QCoreApplication.translate("MainWindow", u"Browse", None))
         self.Upload_pushButton.setText(QCoreApplication.translate("MainWindow", u"Upload", None))
@@ -178,26 +190,12 @@ class Ui_MainWindow(object):
             self.comboBox.setItemText(i, QCoreApplication.translate("MainWindow", userName, None))
             i = i + 1
 
-        self.label.setText(QCoreApplication.translate("MainWindow", u"    USERS", None))
+        self.label.setText(QCoreApplication.translate("MainWindow", u"      Users list", None))
         self.label_2.setText(QCoreApplication.translate("MainWindow", u"  Status", None))
         self.lineEdit.setText(QCoreApplication.translate("MainWindow", u"        Idle", None))
         
-        ElfProgress = db.child(user_db_dir + "/elfProgress").get(admin_tokenId).val()
-        userChoice=0
-        if ElfProgress != 0:
-            userChoice=ctypes.windll.user32.MessageBoxW(0, "Do you want to resume ?", "Error in previous flashing process", 4)
-            #Yes response
-            if userChoice==6:
-                db.child(user_db_dir).update({"isNewElf" : 1}, admin_tokenId)
-                self.worker.updateProgress.connect(self.setProgress)
-                self.worker.start()
-            
-            elif userChoice==7:
-                db.child(user_db_dir).update({"elfProgress" : 0}, admin_tokenId)
-
-        
-        
     # retranslateUi
+    
     
     def UploadElfFile(self, file_path, user_uid):
         global admin_tokenId
@@ -271,7 +269,28 @@ class Ui_MainWindow(object):
             self.progressBar.reset()
             self.worker.updateProgress.connect(self.setProgress)
             self.worker.start()
+            
+            
+    def on_combobox_changed(self, value):
+        global user_db_dir
+        global maxRequests
         
+        user_uid = userNameUID[value]
+        user_db_dir = "users/" + user_uid + "/STM32"
+        
+        ElfProgress = db.child(user_db_dir + "/elfProgress").get(admin_tokenId).val()
+        userChoice = 0
+        if ElfProgress != 0:
+            userChoice = windll.user32.MessageBoxW(0, "Do you want to resume ?", "Error in previous flashing process", 4)
+            if userChoice == 6: # resume
+                maxRequests = db.child(user_db_dir + "/elfProgressMaxRequest").get(admin_tokenId).val()
+                db.child(user_db_dir).update({"isNewElf" : 1}, admin_tokenId)
+                self.worker.updateProgress.connect(self.setProgress)
+                self.lineEdit.setText(QCoreApplication.translate("MainWindow", u" Flashing.....", None))
+                self.worker.start()
+            elif userChoice == 7: # reset
+                db.child(user_db_dir).update({"elfProgress" : 0}, admin_tokenId)
+
 
 
 
@@ -303,7 +322,7 @@ class Worker(QtCore.QThread):
                 time.sleep(0.1) # 100ms
                 timeoutCtr = timeoutCtr + 1
 
-            if timeoutCtr == 5: #500ms, if timed out
+            if timeoutCtr == 15: #1500ms, if timed out
                 self.updateProgress.emit(int(-1), int(maxRequests))
 
 
