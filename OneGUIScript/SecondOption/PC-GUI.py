@@ -6,7 +6,7 @@ from PySide2.QtGui import (QBrush, QColor, QConicalGradient, QFont,
 from PySide2.QtWidgets import *
 from PySide2 import QtCore ,QtWidgets
 
-import sys , time , threading
+import sys , time , threading,os
 
 import tkinter as tk
 from tkinter import filedialog
@@ -73,7 +73,7 @@ class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         if MainWindow.objectName():
             MainWindow.setObjectName(u"MainWindow")
-        MainWindow.resize(552, 301)
+        MainWindow.resize(552, 341)
         font = QFont()
         font.setPointSize(10)
         font.setBold(True)
@@ -116,17 +116,27 @@ class Ui_MainWindow(object):
         self.frame.setFrameShadow(QFrame.Raised)
         self.label_2 = QLabel(self.centralwidget)
         self.label_2.setObjectName(u"label_2")
-        self.label_2.setGeometry(QRect(18, 239, 81, 31))
+        self.label_2.setGeometry(QRect(10, 240, 81, 31))
         self.label_2.setFont(font)
         self.progressBar = QProgressBar(self.centralwidget)
         self.progressBar.setObjectName(u"progressBar")
         self.progressBar.setGeometry(QRect(260, 240, 291, 31))
-        #self.progressBar.setValue(24)
         self.lineEdit = QLineEdit(self.centralwidget)
         self.lineEdit.setObjectName(u"lineEdit")
         self.lineEdit.setGeometry(QRect(105, 240, 140, 31))
         self.lineEdit.setFont(font1)
+        self.lineEdit.setAlignment(Qt.AlignCenter)
         self.lineEdit.setReadOnly(True)
+        self.lineEdit_2 = QLineEdit(self.centralwidget)
+        self.lineEdit_2.setObjectName(u"lineEdit_2")
+        self.lineEdit_2.setGeometry(QRect(150, 280, 321, 31))
+        self.lineEdit_2.setFont(font1)
+        self.lineEdit_2.setAlignment(Qt.AlignCenter)
+        self.lineEdit_2.setReadOnly(True)
+        self.label_3= QLabel(self.centralwidget)
+        self.label_3.setObjectName(u"label_3")
+        self.label_3.setGeometry(QRect(10, 280, 131, 31))
+        self.label_3.setFont(font)
         MainWindow.setCentralWidget(self.centralwidget)
         self.statusbar = QStatusBar(MainWindow)
         self.statusbar.setObjectName(u"statusbar")
@@ -159,6 +169,7 @@ class Ui_MainWindow(object):
       #root.tk.call('wm', 'iconphoto', root._w, PhotoImage(file='icon.png'))
       root.filepath = filedialog.askopenfilename(initialdir = "/",title = "Select file",filetype= ([("Elf files","*.elf")]))
       file_path = root.filepath
+      self.lineEdit_2.setText(QCoreApplication.translate("MainWindow", u"Current file:"+os.path.basename(file_path), None))
 
   
     def setProgress(self, progress, max):
@@ -171,7 +182,7 @@ class Ui_MainWindow(object):
             db.child(user_db_dir).update({"elfProgress" : 0}, admin_tokenId)
             
             self.progressBar.setValue(max)
-            self.lineEdit.setText(QCoreApplication.translate("MainWindow", u" Flash done", None))
+            self.lineEdit.setText(QCoreApplication.translate("MainWindow", u"Flash done", None))
             self.worker.stop()
         elif progress == -1: #if timed out
             self.progressBar.setValue(0)
@@ -193,7 +204,9 @@ class Ui_MainWindow(object):
 
         self.label.setText(QCoreApplication.translate("MainWindow", u"      Users list", None))
         self.label_2.setText(QCoreApplication.translate("MainWindow", u"  Status", None))
-        self.lineEdit.setText(QCoreApplication.translate("MainWindow", u"        Idle", None))
+        self.label_3.setText(QCoreApplication.translate("MainWindow", u"Current file", None))
+        self.lineEdit.setText(QCoreApplication.translate("MainWindow", u"Idle", None))
+        self.lineEdit_2.setText(QCoreApplication.translate("MainWindow", u"There is no choosen ELF file ", None))
         
     # retranslateUi
     
@@ -224,6 +237,10 @@ class Ui_MainWindow(object):
         global maxRequests
         global user_db_dir
         global admin_tokenId
+        
+        if file_path == '':
+            self.lineEdit_2.setText(QCoreApplication.translate("MainWindow", u"Error:There is no choosen ELF file ", None))
+            return
         
         user = userNameUID[self.comboBox.currentText()]
         
