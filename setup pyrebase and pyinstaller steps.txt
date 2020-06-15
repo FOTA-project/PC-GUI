@@ -14,7 +14,10 @@ pip3 install --upgrade setuptools
 
 pip3 install --upgrade gcloud
 
-pip install wheel 
+pip install wheel
+
+// solves win32com module not found when compiling GUI
+pip3 install pypiwin32
 
 ----------------------------------------------------------------------------
 
@@ -24,12 +27,15 @@ pip install pyinstaller
 
 setup for python 3.7 :
 ----------------------
+// pyi-rth-pkgres issue
 https://stackoverflow.com/questions/37815371/pyinstaller-failed-to-execute-script-pyi-rth-pkgres-and-missing-packages
 
 
 solve google-cloud issue :
 -------------------------- 
-https://github.com/googleapis/google-cloud-python/issues/4780 
+https://github.com/googleapis/google-cloud-python/issues/4780
+or
+https://github.com/googleapis/google-cloud-python/issues/4780#issuecomment-626121078
 
 to generate .exe file :
 -----------------------
