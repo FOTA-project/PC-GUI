@@ -1,4 +1,0 @@
-@ECHO OFF
-
-CD DLL
-START  FOTA.exe
