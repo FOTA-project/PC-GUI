@@ -170,6 +170,7 @@ class Ui_MainWindow(object):
             # update isNewElf flag in database
             db.child(user_db_dir).update({"elfProgress" : 0}, admin_tokenId)
             
+            self.progressBar.setValue(max)
             self.lineEdit.setText(QCoreApplication.translate("MainWindow", u" Flash done", None))
             self.worker.stop()
         elif progress == -1: #if timed out
@@ -258,7 +259,7 @@ class Ui_MainWindow(object):
             else: # if RPi communicator didn't update value
                 timeoutCtr = timeoutCtr + 1
                 
-            if timeoutCtr == 10: #1sec, if timed out
+            if timeoutCtr == 20: #2sec, if timed out
                 isTerminate = 1 # set the flag to skip next loop
                 self.lineEdit.setText(QCoreApplication.translate("MainWindow", u"Flash not responding", None))
                 self.progressBar.reset()
