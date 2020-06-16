@@ -332,7 +332,7 @@ class Ui_MainWindow(object):
         if file_path != '': # if this variable holds anything (initialized with any filepath)
             self.lineEdit_2.setText(QCoreApplication.translate("MainWindow", os.path.basename(file_path), None))
         else: # if user pressed cancel (didn't select file)
-            self.lineEdit_2.setText(QCoreApplication.translate("MainWindow", u"There is no chosen ELF file ", None))
+            self.lineEdit_2.setText(QCoreApplication.translate("MainWindow", u"No ELF file selected", None))
 
   
     def retranslateUi(self, MainWindow):
@@ -601,7 +601,7 @@ class UserLifeRefresher(QtCore.QThread):
             db.child(user_top_db).update({"LifeFlag" : prevLifeFlag}, admin_tokenId)
             
             # wait some time, give RPi communicator some time to flip/toggle the flag
-            time.sleep(1)
+            time.sleep(1.2)
 
             # get LifeFlag flag from database again
             LifeFlag = db.child(user_top_db + "/LifeFlag").get(admin_tokenId).val()
