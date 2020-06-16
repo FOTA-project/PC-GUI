@@ -1,23 +1,30 @@
+import os
+
+# set some environment variables to disbable scaling
+#source: https://vicrucann.github.io/tutorials/osg-qt-high-dpi/
+# source: https://stackoverflow.com/questions/58194247/warning-qt-device-pixel-ratio-is-deprecated
+os.environ['QT_AUTO_SCREEN_SCALE_FACTOR'] = '1' # to enable platform plugin controlled per-screen factors
+os.environ['QT_SCREEN_SCALE_FACTORS'] = '1' # to set per-screen DPI
+os.environ['QT_SCALE_FACTOR'] = '1' # to set the application global scale factor
+
 import pyrebase
+import sys, time, threading
+import tkinter as tk
+import random
 from pathlib import Path
 from PySide2.QtCore import (QCoreApplication, QMetaObject, QObject, QPoint, QThread, QRect, QSize, QUrl, Qt)
 from PySide2.QtGui import (QBrush, QColor, QConicalGradient, QFont,
                            QFontDatabase, QIcon, QLinearGradient, QPalette, QPainter, QPixmap, QRadialGradient)
 from PySide2.QtWidgets import *
-from PySide2 import QtCore ,QtWidgets
-
-import sys , time , threading,os
-
-import tkinter as tk
+from PySide2 import QtCore, QtWidgets
 from tkinter import filedialog
 from tkinter import PhotoImage
-
 from ctypes import windll
 
 
-STOP_THREAD_FLAG = 0
+#STOP_THREAD_FLAG = 0
 
-# upload
+# firebase app configurations
 firebaseConfig = {
     "apiKey": "AIzaSyBgBFhNa6OnJCLbFTQW3vF_Cyz-rMyN4vU",
     "authDomain": "fota-server-b4148.firebaseapp.com",
@@ -27,7 +34,7 @@ firebaseConfig = {
     "messagingSenderId": "774423425890",
     "appId": "1:774423425890:web:f506832444c3d30b2c323b",
     "measurementId": "G-2DE9D9TN6N"
-  };
+};
 
 # admin credentials
 email = r"admin_stm32@admin-group.com"
@@ -39,25 +46,29 @@ auth = firebase.auth()
 admin = auth.sign_in_with_email_and_password(email, password)
 admin = auth.refresh(admin['refreshToken']) # optional
 
+# init database and storage
 db = firebase.database()
 storage = firebase.storage()
 
-currentUserUID = '' # currently selected user UID from combobox
-
+# get admin authentication token
 admin_tokenId = admin['idToken']
 
+# get a list of all users
+users = db.child("users").get(admin_tokenId)
+
+currentUserUID = '' # currently selected user UID from combobox
 user_db_dir = ''
 
-users = db.child("users").get(admin_tokenId)
 userNameUID = {}
 
 # am empty user to solve combobox selection issue
 userNameUID[''] = ''
 
+# get all users names and their UID
 for uid, userInfo in users.val().items():
     userNameUID[userInfo['Name']] = uid
 
-file_path = ''
+file_path = '' # full path and filename of currently selected ELF file
 
 INSTRUCTION_WRITE_MAX_REQUESTS    = -4
 INSTRUCTION_COMM_TIMEOUT          = -2
@@ -72,7 +83,7 @@ def Admin_TokenRefresh_Thread():
     global admin
     global isTokenRefreshThreadActive
     
-    while 1:
+    while True:
         isTokenRefreshThreadActive = 1
         admin = auth.refresh(admin['refreshToken']) # get a new token
         isTokenRefreshThreadActive = 0
@@ -80,24 +91,22 @@ def Admin_TokenRefresh_Thread():
 
 # admin token refresher
 tokenThreadHandle = threading.Thread(target = Admin_TokenRefresh_Thread)
-#tokenThreadHandle.start()
+tokenThreadHandle.daemon = True # set this thread as daemon so that sys.exit() won't be blocked
+tokenThreadHandle.start()
 
 time.sleep(1)
 
 
 class Ui_MainWindow(object):
-    def closeEvent(self, event):
-        print("ASssssssdasdasdsadsadasdasd#########################")
-        event.accept()
-
-
     def setupUi(self, MainWindow):
+        global userNameUID
+
         if MainWindow.objectName():
             MainWindow.setObjectName(u"MainWindow")
         
         # set a fixed size for the main window
-        width = 550
-        height = 335
+        width = 555
+        height = 333
         #MainWindow.resize(width, height)
         MainWindow.setFixedSize(width, height) 
         
@@ -120,6 +129,13 @@ class Ui_MainWindow(object):
         self.Upload_pushButton.setFont(font)
         self.Upload_pushButton.setStyleSheet(u"background-color: rgb(97, 144, 200);")
         self.comboBox = QComboBox(self.centralwidget)
+
+        # add all users name to the combobox
+        i = 0
+        for userName in userNameUID:
+            self.comboBox.addItem("")
+            self.comboBox.setItemText(i, QCoreApplication.translate("MainWindow", userName, None))
+            i = i + 1
 
         self.comboBox.setObjectName(u"comboBox")
         self.comboBox.setGeometry(QRect(420, 60, 111, 31))
@@ -209,17 +225,11 @@ class Ui_MainWindow(object):
         self.uploadStateAttribute.stop()
 
         if state == False: #There is an error
-            # hint to the life checker thread
-            isUploadProcessHappening = 0
-
-            # enable upload button
-            self.Upload_pushButton.setEnabled(True)
-
-            # enable browse button
-            self.Browse_pushButton.setEnabled(True)
-
-            # enable browse button
+            # enable combobox
             self.comboBox.setEnabled(True)
+
+            # hint to the life checker thread so that it enables the upload and browse buttons
+            isUploadProcessHappening = 0
 
             return
 
@@ -227,22 +237,20 @@ class Ui_MainWindow(object):
         self.flashingProgressAttribute.start()
 
 
-    def flashStateReceiver(self):
+    def flashStateReceiver(self, state):
         global isUploadProcessHappening
-
-        # hint to the life checker thread
-        isUploadProcessHappening = 0
 
         self.flashingProgressAttribute.stop()
 
-        # enable upload button
-        self.Upload_pushButton.setEnabled(True)
+        if state == False: # if an error occured when flashing, force prompt
+            self.promptIfPreviousFlashError(True)
+        else: # if flashing succeeded
+            # enable combobox
+            self.comboBox.setEnabled(True)
 
-        # enable browse button
-        self.Browse_pushButton.setEnabled(True)
+            # hint to the life checker thread so that it enables the upload and browse buttons
+            isUploadProcessHappening = 0
 
-        # enable browse button
-        self.comboBox.setEnabled(True)
 
 
     def setUploadBtnState(self, state):
@@ -259,8 +267,11 @@ class Ui_MainWindow(object):
 
 
     def setProgress(self, progress, max):
-        self.progressBar.setMaximum(max)
-        self.progressBar.setValue(progress)
+        if progress == -1:
+            self.progressBar.reset()
+        else:
+            self.progressBar.setMaximum(max)
+            self.progressBar.setValue(progress)
 
 
     def setIcon(self,MainWindow):
@@ -269,50 +280,52 @@ class Ui_MainWindow(object):
 
 
     def Browse_Handler(self):
-      global file_path
-      
-      root = tk.Tk()
-      root.withdraw()
-      #root.tk.call('wm', 'iconphoto', root._w, PhotoImage(file='icon.png'))
-      root.filepath = filedialog.askopenfilename(initialdir = "/",title = "Select file",filetype= ([("Elf files","*.elf")]))
-      
-      if root.filepath != '': # if any file is selected (user didn't press cancel)
-        file_path = root.filepath
-      
-      if file_path != '': # if this variable holds anything (initialized with any filepath)
-        self.lineEdit_2.setText(QCoreApplication.translate("MainWindow", os.path.basename(file_path), None))
-      else: # if user pressed cancel (didn't select file)
-        self.lineEdit_2.setText(QCoreApplication.translate("MainWindow", u"There is no chosen ELF file ", None))
+        global file_path
+        global isUploadProcessHappening
+
+        root = tk.Tk()
+        root.withdraw()
+        #root.tk.call('wm', 'iconphoto', root._w, PhotoImage(file='icon.png'))
+
+        # hint to the life checking thread so that it won't enable the button by force
+        isUploadProcessHappening = 1
+
+        # disable browse button to prevent multiple browse windows
+        self.Browse_pushButton.setEnabled(False)
+
+        root.filepath = filedialog.askopenfilename(initialdir = "/",title = "Select file",filetype= ([("Elf files","*.elf")]))
+
+        # re-enable browse button
+        self.Browse_pushButton.setEnabled(True)
+
+        # hint to the life checking thread
+        isUploadProcessHappening = 0
+
+        if root.filepath != '': # if any file is selected (user didn't press cancel)
+            file_path = root.filepath
+
+        if file_path != '': # if this variable holds anything (initialized with any filepath)
+            self.lineEdit_2.setText(QCoreApplication.translate("MainWindow", os.path.basename(file_path), None))
+        else: # if user pressed cancel (didn't select file)
+            self.lineEdit_2.setText(QCoreApplication.translate("MainWindow", u"There is no chosen ELF file ", None))
 
   
     def retranslateUi(self, MainWindow):
-        global userNameUID
-        
         MainWindow.setWindowTitle(QCoreApplication.translate("MainWindow", u"FOTA PC-GUI", None))
         self.Browse_pushButton.setText(QCoreApplication.translate("MainWindow", u"Browse", None))
         self.Upload_pushButton.setText(QCoreApplication.translate("MainWindow", u"Upload", None))
-        
-        i = 0
-        for userName in userNameUID:
-            self.comboBox.addItem("")
-            self.comboBox.setItemText(i, QCoreApplication.translate("MainWindow", userName, None))
-            i = i + 1
 
-        self.label.setText(QCoreApplication.translate("MainWindow", u"      Users list", None))
+        self.label.setText(QCoreApplication.translate("MainWindow", u"         Users list", None))
         self.label_2.setText(QCoreApplication.translate("MainWindow", u"  Status", None))
         self.label_3.setText(QCoreApplication.translate("MainWindow", u"  Current file", None))
         self.lineEdit.setStyleSheet("color: rgb(0, 0, 0); background-color: rgb(255, 255, 255);")
         self.lineEdit.setText(QCoreApplication.translate("MainWindow", u"Idle", None))
-        self.lineEdit_2.setText(QCoreApplication.translate("MainWindow", u"There is no chosen ELF file ", None))
+        self.lineEdit_2.setText(QCoreApplication.translate("MainWindow", u"No ELF file selected", None))
         
     # retranslateUi
     
 
     def Upload_Handler(self):
-        global state
-        global user_db_dir
-        global admin_tokenId
-        global userNameUID
         global file_path
         global currentUserUID
         global isUploadProcessHappening
@@ -322,9 +335,12 @@ class Ui_MainWindow(object):
             return
         
         if currentUserUID == '': # 1st empty/dummy user       
-            self.lineEdit.setStyleSheet("color: rgb(255, 255, 255); background-color: rgb(100, 0, 0);")
+            self.lineEdit.setStyleSheet("color: rgb(0, 0, 0); background-color: rgb(245, 135, 140);")
             self.lineEdit.setText(QCoreApplication.translate("MainWindow", u"No user selected", None))
             return
+
+        # raise the global flag to hint to the life checker thread
+        isUploadProcessHappening = 1
 
         # disable upload button
         self.Upload_pushButton.setEnabled(False)
@@ -332,27 +348,69 @@ class Ui_MainWindow(object):
         # disable browse button
         self.Browse_pushButton.setEnabled(False)
 
-        # disable browse button
+        # disable combobox
         self.comboBox.setEnabled(False)
-
-        # raise the global flag to hint to the life checker thread
-        isUploadProcessHappening = 1
 
         # start upload thread
         self.uploadStateAttribute.start()
 
-  
-    def on_combobox_changed(self, value):
-        global user_db_dir
+
+    def promptIfPreviousFlashError(self, isForcePrompt):
         global isTokenRefreshThreadActive
         global admin_tokenId
+        global user_db_dir
+        global isUploadProcessHappening
+
+        userChoice = 0
+        ElfProgress = 0
+
+        # trap until admin token refresh thread is over/done
+        while isTokenRefreshThreadActive == 1:
+            time.sleep(0.05) # wait 50ms
+
+        if isForcePrompt == False: # if we're not forcing the prompt, then get the last progress from database
+            ElfProgress = db.child(user_db_dir + "/elfProgress").get(admin_tokenId).val()
+
+        if ElfProgress != 0 or isForcePrompt == True: # if the database has an old progress or we want to force the prompt
+            # raise the global flag to hint to the life checker thread
+            isUploadProcessHappening = 1
+
+            # disable upload button
+            self.Upload_pushButton.setEnabled(False)
+
+            # disable browse button
+            self.Browse_pushButton.setEnabled(False)
+
+            # disable combobox
+            self.comboBox.setEnabled(False)
+
+            userChoice = windll.user32.MessageBoxW(0, "Attempt to resume ?", "Error in previous flashing process", 4)
+            if userChoice == 6: # yes, attempt to resume
+                # set the isNewElf flag so that the RPi would attempt to re-flash
+                db.child(user_db_dir).update({"isNewElf" : 1}, admin_tokenId)
+
+                # start the flashing progress thread
+                self.flashingProgressAttribute.start()
+            elif userChoice == 7: # no, just continue
+                # re-enable combobox
+                self.comboBox.setEnabled(True)
+
+                # hint to the life checker thread so that it enables the upload and browse buttons
+                isUploadProcessHappening = 0
+
+                # reset the isNewElf flag
+                db.child(user_db_dir).update({"elfProgress" : 0}, admin_tokenId)
+
+
+    def on_combobox_changed(self, value):
+        global user_db_dir
         global currentUserUID
         global userNameUID
-        
+
         # stop life check thread
         if self.userLifeAttributes.isRunning() == True:
             self.userLifeAttributes.stop()
-        
+
         # initially disable upload and browse buttons until user life thread checks
         self.Upload_pushButton.setEnabled(False)
         self.Browse_pushButton.setEnabled(False)
@@ -364,38 +422,45 @@ class Ui_MainWindow(object):
             self.lineEdit.setStyleSheet("color: rgb(0, 0, 0); background-color: rgb(255, 255, 255);")
             self.lineEdit.setText(QCoreApplication.translate("MainWindow", u"Idle", None))
             return
-        
+
+        # start life check thread
+        self.userLifeAttributes.start()
+
         # print idle on the status bar
-        self.lineEdit.setStyleSheet("color: rgb(0, 0, 0); background-color: rgb(255, 255, 0);")
+        self.lineEdit.setStyleSheet("color: rgb(0, 0, 0); background-color: rgb(255, 255, 170);")
         self.lineEdit.setText(QCoreApplication.translate("MainWindow", u"Checking RPi...", None))
 
-        # trap until admin token refresh thread is over/done
-        while isTokenRefreshThreadActive == 1:
-            time.sleep(0.05) # wait 50ms
-        
-        self.userLifeAttributes.start() # start life check thread
+        # update the global flags
+        currentUserUID = userNameUID[value]
+        user_db_dir = "users/" + currentUserUID + "/STM32"
 
-        user_uid = userNameUID[value]
-        currentUserUID = user_uid # update the global flag
-        user_db_dir = "users/" + user_uid + "/STM32"
-        
-        ElfProgress = db.child(user_db_dir + "/elfProgress").get(admin_tokenId).val()
-        userChoice = 0
-        if ElfProgress != 0:
-            userChoice = windll.user32.MessageBoxW(0, "Do you want to resume ?", "Error in previous flashing process", 4)
-            if userChoice == 6: # resume
-                db.child(user_db_dir).update({"isNewElf" : 1}, admin_tokenId)
-                self.flashingProgressAttribute.start()
-            elif userChoice == 7: # reset
-                db.child(user_db_dir).update({"elfProgress" : 0}, admin_tokenId)
+        # check if there's an error in previous flashing process, don't force prompt
+        self.promptIfPreviousFlashError(False)
+
+
+    def cleanUp(self): # terminate all running threads before exiting
+        # source: https://www.programcreek.com/python/example/104819/PyQt5.QtWidgets.QApplication.quit
+        # stop life check thread
+        if self.userLifeAttributes.isRunning() == True:
+            self.userLifeAttributes.stop()
+
+        # stop flashing progress thread
+        if self.flashingProgressAttribute.isRunning() == True:
+            self.flashingProgressAttribute.stop()
+
+        # stop uploading thread
+        if self.uploadStateAttribute.isRunning() == True:
+            self.uploadStateAttribute.stop()
+
+        QApplication.quit()
 
 
 # flashing progress thread
 class FlashingProgressThread(QtCore.QThread):
     updateProgress = QtCore.Signal(int, int)
     statusBarSignal = QtCore.Signal(str, str)
-    exitSignal = QtCore.Signal()
-    
+    exitSignal = QtCore.Signal(bool)
+
     def __init__(self):
         QtCore.QThread.__init__(self)
 
@@ -409,8 +474,10 @@ class FlashingProgressThread(QtCore.QThread):
         ElfProgress = 0
         previousElfProgress = -1
 
+        exitState = True # initially assume no error
+
         # get max number of requests from server
-        while 1:
+        while True:
             time.sleep(0.1) # 100ms
             maxRequests = db.child(user_db_dir + "/elfProgressMaxRequest").get(admin_tokenId).val()
             if maxRequests != -1:
@@ -418,18 +485,17 @@ class FlashingProgressThread(QtCore.QThread):
                 break
             else: # if RPi communicator didn't update value
                 timeoutCtr = timeoutCtr + 1
-                
-            if timeoutCtr == 20: #2sec, if timed out
+
+            if timeoutCtr == 20: #2000ms, if timed out
+                exitState = False
                 isTerminate = 1 # set the flag to skip next loop
-                self.statusBarSignal.emit("color: rgb(255, 255, 255); background-color: rgb(100, 0, 0);", u"RPi not responding")
-                self.updateProgress.emit(0, 100)
+                self.updateProgress.emit(-1, 0)
+                self.statusBarSignal.emit("color: rgb(0, 0, 0); background-color: rgb(245, 135, 140);", u"Flashing timeout")
                 break
 
         if isTerminate == 0: # if no error occurred when getting max requests from server
             self.updateProgress.emit(0, maxRequests)
-            self.statusBarSignal.emit("color: rgb(0, 0, 0); background-color: rgb(255, 255, 0);", u" Flashing...")
-
-        # we get here if we received max requests from server
+            self.statusBarSignal.emit("color: rgb(0, 0, 0); background-color: rgb(255, 255, 170);", u"Flashing...")
 
         while isTerminate == 0:
             ElfProgress = db.child(user_db_dir + "/elfProgress").get(admin_tokenId).val()
@@ -438,25 +504,26 @@ class FlashingProgressThread(QtCore.QThread):
                 timeoutCtr = 0
                 previousElfProgress = ElfProgress
                 self.updateProgress.emit(ElfProgress, maxRequests)
-                
-                if ElfProgress >= maxRequests: #if finished
+
+                if ElfProgress >= maxRequests: # if finished (progress reached max requests)
                     # update isNewElf flag in database
                     db.child(user_db_dir).update({"elfProgress" : 0}, admin_tokenId)
                     
-                    self.statusBarSignal.emit("color: rgb(0, 0, 0); background-color: rgb(0, 255, 0);", u"Flash done")
+                    self.statusBarSignal.emit("color: rgb(0, 0, 0); background-color: rgb(115, 225, 120);", u"Flashing done")
                     
                     isTerminate = 1
             else: # if no change happened
                 time.sleep(0.1) # 100ms
                 timeoutCtr = timeoutCtr + 1
 
-            if timeoutCtr == 15: #1500ms, if timed out
-                self.updateProgress.emit(0, maxRequests)
-                self.statusBarSignal.emit("color: rgb(255, 255, 255); background-color: rgb(100, 0, 0);", u"Flash error")
+            if timeoutCtr == 20: #2000ms, if timed out
+                exitState = False
+                self.updateProgress.emit(-1, 0)
+                self.statusBarSignal.emit("color: rgb(0, 0, 0); background-color: rgb(245, 135, 140);", u"Flashing timeout")
                 
                 isTerminate = 1
 
-        self.exitSignal.emit()
+        self.exitSignal.emit(exitState)
 
 
     def stop(self):
@@ -484,7 +551,7 @@ class UserLifeRefresher(QtCore.QThread):
         errorCtr = 0
         isFirstTime = 1
         
-        while 1:
+        while True:
             # we should attempt to get admin data (uid, token) if it's being refreshed
             if isTokenRefreshThreadActive == 1:
                 # wait 500ms
@@ -516,20 +583,20 @@ class UserLifeRefresher(QtCore.QThread):
                 isUserAlive = 1
                 errorCtr = 0
 
+                if isFirstTime == 1:
+                    isFirstTime = 0
+                    self.statusBarSignal.emit("color: rgb(0, 0, 0); background-color: rgb(115, 225, 120);", u"RPi is alive")
+
                 if isUploadProcessHappening == 0:
                     self.uploadBtnEnableSignal.emit(True)
                     self.browseBtnEnableSignal.emit(True)
-                    if isFirstTime == 1:
-                        isFirstTime = 0
-                        self.statusBarSignal.emit("color: rgb(255, 255, 255); background-color: rgb(0, 100, 0);", u"RPi is alive")
-                        
-            if errorCtr == 5:
+            if errorCtr == 3:
                 isUserAlive = 0
                 errorCtr = 0
 
                 self.uploadBtnEnableSignal.emit(False)
                 self.browseBtnEnableSignal.emit(False)
-                self.statusBarSignal.emit("color: rgb(255, 255, 255); background-color: rgb(100, 0, 0);", u"RPi not alive")
+                self.statusBarSignal.emit("color: rgb(0, 0, 0); background-color: rgb(245, 135, 140);", u"RPi not alive")
 
 
     def stop(self):
@@ -553,9 +620,12 @@ class UploaderThread(QtCore.QThread):
 
         cloud_file = "users/" + currentUserUID + "/file.elf"
 
-        self.progressBarSignal.emit(50, 100)
-        self.statusBarSignal.emit("color: rgb(0, 0, 0); background-color: rgb(255, 255, 0);", u"Uploading...")
-        
+        self.progressBarSignal.emit(random.randint(20, 75), 100)
+        self.statusBarSignal.emit("color: rgb(0, 0, 0); background-color: rgb(255, 255, 170);", u"Uploading...")
+
+        # clear the elfProgress indicator in the databse since it's a new elf file
+        db.child(user_db_dir).update({"elfProgress" : 0}, admin_tokenId)
+
         # upload file
         storage.child(cloud_file).put(file_path, admin_tokenId)
 
@@ -566,13 +636,13 @@ class UploaderThread(QtCore.QThread):
         isNewElf = db.child(user_db_dir + "/isNewElf").get(admin_tokenId).val()
 
         if isNewElf == 0: #There is an error
-            self.progressBarSignal.emit(0, 100)
-            self.statusBarSignal.emit("color: rgb(255, 255, 255); background-color: rgb(100, 0, 0);", u"Upload error...")
+            self.progressBarSignal.emit(-1, 0)
+            self.statusBarSignal.emit("color: rgb(0, 0, 0); background-color: rgb(245, 135, 140);", u"Uploading error")
             #TODO: Add message to complete or cancelling in case of errors
             #value=ctypes.windll.user32.MessageBoxW(0, "Done!", "uploaded to server", 1)
         else:
             self.progressBarSignal.emit(100, 100)
-            self.statusBarSignal.emit("color: rgb(0, 0, 0); background-color: rgb(0, 255, 0);", u"Upload done")
+            self.statusBarSignal.emit("color: rgb(0, 0, 0); background-color: rgb(115, 225, 120);", u"Uploading done")
             #TODO : edit progress to move from 0 to 100
             time.sleep(1)
 
@@ -589,5 +659,7 @@ window = QMainWindow()
 Form = Ui_MainWindow()
 Form.setupUi(window)
 window.show()
-sys.exit(app.exec_())
+exitCode = app.exec_()
+Form.cleanUp() # terminate all running threads before exiting
+sys.exit(exitCode)
 
