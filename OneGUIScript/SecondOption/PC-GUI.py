@@ -74,19 +74,19 @@ INSTRUCTION_WRITE_MAX_REQUESTS    = -4
 INSTRUCTION_COMM_TIMEOUT          = -2
 INSTRUCTION_TERMINATE_ON_SUCCESS  = -3
 
-isTokenRefreshThreadActive = 0
-isUserAlive = 0
+isTokenRefreshThreadActive = False
+isUserAlive = False
 
-isUploadProcessHappening = 0
+isUploadProcessHappening = False
 
 def Admin_TokenRefresh_Thread():
     global admin
     global isTokenRefreshThreadActive
     
     while True:
-        isTokenRefreshThreadActive = 1
+        isTokenRefreshThreadActive = True
         admin = auth.refresh(admin['refreshToken']) # get a new token
-        isTokenRefreshThreadActive = 0
+        isTokenRefreshThreadActive = False
         time.sleep(1800) # sleep 30min
 
 # admin token refresher
@@ -204,7 +204,13 @@ class Ui_MainWindow(object):
         self.userLifeAttributes = UserLifeRefresher()
         self.userLifeAttributes.uploadBtnEnableSignal.connect(self.setUploadBtnState)
         self.userLifeAttributes.browseBtnEnableSignal.connect(self.setBrowseBtnState)
+        self.userLifeAttributes.comboboxEnableSignal.connect(self.setComboboxState)
         self.userLifeAttributes.statusBarSignal.connect(self.setStatusBarState)
+        self.userLifeAttributes.updateProgressSignal.connect(self.setProgress)
+        
+        self.userLifeAttributes.uploaderThreadStopSignal.connect(self.uploadThreadStopReceiver)
+        self.userLifeAttributes.flashingProgressThreadStopSignal.connect(self.flashingProgressThreadStopReceiver)
+        self.userLifeAttributes.checkFlashingErrorSignal.connect(self.checkFlashingErrorReceiver)
 
         # connect uploader thread
         self.uploadStateAttribute = UploaderThread()
@@ -219,17 +225,31 @@ class Ui_MainWindow(object):
     # setupUi
 
 
+    def uploadThreadStopReceiver(self):
+        if self.uploadStateAttribute.isRunning() == True:
+            self.uploadStateAttribute.stop()
+
+
+    def flashingProgressThreadStopReceiver(self):
+        if self.flashingProgressAttribute.isRunning() == True:
+            self.flashingProgressAttribute.stop()
+
+
+    def checkFlashingErrorReceiver(self):
+        self.promptIfPreviousFlashError(False)
+
+
     def uploadStateReceiver(self, state):
         global isUploadProcessHappening
 
-        self.uploadStateAttribute.stop()
+        self.uploadThreadStopReceiver()
 
         if state == False: #There is an error
             # enable combobox
             self.comboBox.setEnabled(True)
 
             # hint to the life checker thread so that it enables the upload and browse buttons
-            isUploadProcessHappening = 0
+            isUploadProcessHappening = False
 
             return
 
@@ -240,7 +260,8 @@ class Ui_MainWindow(object):
     def flashStateReceiver(self, state):
         global isUploadProcessHappening
 
-        self.flashingProgressAttribute.stop()
+        # stop flashing progress thread
+        self.flashingProgressThreadStopReceiver()
 
         if state == False: # if an error occured when flashing, force prompt
             self.promptIfPreviousFlashError(True)
@@ -249,7 +270,7 @@ class Ui_MainWindow(object):
             self.comboBox.setEnabled(True)
 
             # hint to the life checker thread so that it enables the upload and browse buttons
-            isUploadProcessHappening = 0
+            isUploadProcessHappening = False
 
 
 
@@ -259,6 +280,10 @@ class Ui_MainWindow(object):
 
     def setBrowseBtnState(self, state):
         self.Browse_pushButton.setEnabled(state)
+
+
+    def setComboboxState(self, state):
+        self.comboBox.setEnabled(state)
 
 
     def setStatusBarState(self, colors, displayText):
@@ -288,7 +313,7 @@ class Ui_MainWindow(object):
         #root.tk.call('wm', 'iconphoto', root._w, PhotoImage(file='icon.png'))
 
         # hint to the life checking thread so that it won't enable the button by force
-        isUploadProcessHappening = 1
+        isUploadProcessHappening = True
 
         # disable browse button to prevent multiple browse windows
         self.Browse_pushButton.setEnabled(False)
@@ -299,7 +324,7 @@ class Ui_MainWindow(object):
         self.Browse_pushButton.setEnabled(True)
 
         # hint to the life checking thread
-        isUploadProcessHappening = 0
+        isUploadProcessHappening = False
 
         if root.filepath != '': # if any file is selected (user didn't press cancel)
             file_path = root.filepath
@@ -340,7 +365,7 @@ class Ui_MainWindow(object):
             return
 
         # raise the global flag to hint to the life checker thread
-        isUploadProcessHappening = 1
+        isUploadProcessHappening = True
 
         # disable upload button
         self.Upload_pushButton.setEnabled(False)
@@ -360,12 +385,13 @@ class Ui_MainWindow(object):
         global admin_tokenId
         global user_db_dir
         global isUploadProcessHappening
+        global isUserAlive
 
         userChoice = 0
         ElfProgress = 0
 
         # trap until admin token refresh thread is over/done
-        while isTokenRefreshThreadActive == 1:
+        while isTokenRefreshThreadActive == True:
             time.sleep(0.05) # wait 50ms
 
         if isForcePrompt == False: # if we're not forcing the prompt, then get the last progress from database
@@ -373,7 +399,7 @@ class Ui_MainWindow(object):
 
         if ElfProgress != 0 or isForcePrompt == True: # if the database has an old progress or we want to force the prompt
             # raise the global flag to hint to the life checker thread
-            isUploadProcessHappening = 1
+            isUploadProcessHappening = True
 
             # disable upload button
             self.Upload_pushButton.setEnabled(False)
@@ -396,7 +422,7 @@ class Ui_MainWindow(object):
                 self.comboBox.setEnabled(True)
 
                 # hint to the life checker thread so that it enables the upload and browse buttons
-                isUploadProcessHappening = 0
+                isUploadProcessHappening = False
 
                 # reset the isNewElf flag
                 db.child(user_db_dir).update({"elfProgress" : 0}, admin_tokenId)
@@ -423,19 +449,16 @@ class Ui_MainWindow(object):
             self.lineEdit.setText(QCoreApplication.translate("MainWindow", u"Idle", None))
             return
 
-        # start life check thread
-        self.userLifeAttributes.start()
+        # update the global flags
+        currentUserUID = userNameUID[value]
+        user_db_dir = "users/" + currentUserUID + "/STM32"
 
         # print idle on the status bar
         self.lineEdit.setStyleSheet("color: rgb(0, 0, 0); background-color: rgb(255, 255, 170);")
         self.lineEdit.setText(QCoreApplication.translate("MainWindow", u"Checking RPi...", None))
 
-        # update the global flags
-        currentUserUID = userNameUID[value]
-        user_db_dir = "users/" + currentUserUID + "/STM32"
-
-        # check if there's an error in previous flashing process, don't force prompt
-        self.promptIfPreviousFlashError(False)
+        # start life check thread
+        self.userLifeAttributes.start()
 
 
     def cleanUp(self): # terminate all running threads before exiting
@@ -445,12 +468,10 @@ class Ui_MainWindow(object):
             self.userLifeAttributes.stop()
 
         # stop flashing progress thread
-        if self.flashingProgressAttribute.isRunning() == True:
-            self.flashingProgressAttribute.stop()
+        self.flashingProgressThreadStopReceiver()
 
         # stop uploading thread
-        if self.uploadStateAttribute.isRunning() == True:
-            self.uploadStateAttribute.stop()
+        self.uploadThreadStopReceiver()
 
         QApplication.quit()
 
@@ -534,7 +555,12 @@ class FlashingProgressThread(QtCore.QThread):
 class UserLifeRefresher(QtCore.QThread):
     uploadBtnEnableSignal = QtCore.Signal(bool)
     browseBtnEnableSignal = QtCore.Signal(bool)
+    comboboxEnableSignal = QtCore.Signal(bool)
     statusBarSignal = QtCore.Signal(str, str)
+    uploaderThreadStopSignal = QtCore.Signal()
+    flashingProgressThreadStopSignal = QtCore.Signal()
+    checkFlashingErrorSignal = QtCore.Signal()
+    updateProgressSignal = QtCore.Signal(int, int)
     
     def __init__(self):
         QtCore.QThread.__init__(self)
@@ -547,13 +573,16 @@ class UserLifeRefresher(QtCore.QThread):
         global isTokenRefreshThreadActive
         global isUserAlive
         global isUploadProcessHappening
+        global user_db_dir
+        global admin_tokenId
         
         errorCtr = 0
-        isFirstTime = 1
+        wasPreviouslyOffline = True
+        isFirstTime = True
         
         while True:
             # we should attempt to get admin data (uid, token) if it's being refreshed
-            if isTokenRefreshThreadActive == 1:
+            if isTokenRefreshThreadActive == True:
                 # wait 500ms
                 time.sleep(0.5)
                 continue
@@ -579,24 +608,43 @@ class UserLifeRefresher(QtCore.QThread):
 
             if LifeFlag == prevLifeFlag: # if no life change happened! (RPi communicator didn't flip/toggle it)
                 errorCtr = errorCtr + 1
-            else: # RPi communicator was alive
-                isUserAlive = 1
+            else: # RPi communicator is alive
+                isUserAlive = True
                 errorCtr = 0
 
-                if isFirstTime == 1:
-                    isFirstTime = 0
-                    self.statusBarSignal.emit("color: rgb(0, 0, 0); background-color: rgb(115, 225, 120);", u"RPi is alive")
-
-                if isUploadProcessHappening == 0:
+                if isUploadProcessHappening == False:
                     self.uploadBtnEnableSignal.emit(True)
                     self.browseBtnEnableSignal.emit(True)
-            if errorCtr == 3:
-                isUserAlive = 0
+
+                if wasPreviouslyOffline and isUploadProcessHappening == False:
+                    wasPreviouslyOffline = False
+                    self.statusBarSignal.emit("color: rgb(0, 0, 0); background-color: rgb(115, 225, 120);", u"RPi is alive")
+
+                    # check if there's an error in previous flashing process, don't force prompt
+                    self.checkFlashingErrorSignal.emit()
+
+            if errorCtr == 3: # if RPi was dead for too long
+                isUserAlive = False
                 errorCtr = 0
 
-                self.uploadBtnEnableSignal.emit(False)
-                self.browseBtnEnableSignal.emit(False)
-                self.statusBarSignal.emit("color: rgb(0, 0, 0); background-color: rgb(245, 135, 140);", u"RPi not alive")
+                # force-stop uploading and flashing progress threads
+                self.uploaderThreadStopSignal.emit()
+                self.flashingProgressThreadStopSignal.emit()
+
+                # reset the flag since nothing is happening now
+                isUploadProcessHappening = False
+
+                # reset the progress bar
+                self.updateProgressSignal.emit(-1, 0)
+
+                if wasPreviouslyOffline == False or isFirstTime: # if it was previously online
+                    wasPreviouslyOffline = True
+                    isFirstTime = False
+                    self.uploadBtnEnableSignal.emit(False)
+                    self.browseBtnEnableSignal.emit(False)
+                    self.comboboxEnableSignal.emit(True)
+                    self.statusBarSignal.emit("color: rgb(0, 0, 0); background-color: rgb(245, 135, 140);", u"RPi not alive")
+                    db.child(user_db_dir).update({"isNewElf" : 0}, admin_tokenId)
 
 
     def stop(self):
