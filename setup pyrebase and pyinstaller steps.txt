@@ -37,6 +37,23 @@ https://github.com/googleapis/google-cloud-python/issues/4780
 or
 https://github.com/googleapis/google-cloud-python/issues/4780#issuecomment-626121078
 
+
+solve other issues:
+--------------------------
+// after installing pyinstaller
+
+pip uninstall shiboken2
+pip uninstall PySide2
+
+
+pip3 install shiboken2
+pip3 install PySide2
+
+// then copy these folders from python install dir to dist dir
+gcloud-0.18.3-py3.8.egg-info
+google
+
+
 to generate .exe file :
 -----------------------
 pyinstaller PC-GUI.py -w --name FOTA
