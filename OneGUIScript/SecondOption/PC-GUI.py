@@ -9,7 +9,6 @@ os.environ['QT_SCALE_FACTOR'] = '1' # to set the application global scale factor
 
 import pyrebase
 import sys, time, threading
-import tkinter as tk
 import random
 from pathlib import Path
 from PySide2.QtCore import (QCoreApplication, QMetaObject, QObject, QPoint, QThread, QRect, QSize, QUrl, Qt)
@@ -17,8 +16,6 @@ from PySide2.QtGui import (QBrush, QColor, QConicalGradient, QFont,
                            QFontDatabase, QIcon, QLinearGradient, QPalette, QPainter, QPixmap, QRadialGradient)
 from PySide2.QtWidgets import *
 from PySide2 import QtCore, QtWidgets
-from tkinter import filedialog
-from tkinter import PhotoImage
 from ctypes import windll
 
 
@@ -221,7 +218,6 @@ class Ui_MainWindow(object):
         # initially disable upload and browse buttons
         self.Upload_pushButton.setEnabled(False)
         self.Browse_pushButton.setEnabled(False)
-
     # setupUi
 
 
@@ -307,26 +303,11 @@ class Ui_MainWindow(object):
         global file_path
         global isUploadProcessHappening
 
-        root = tk.Tk()
-        root.withdraw()
-        #root.tk.call('wm', 'iconphoto', root._w, PhotoImage(file='icon.png'))
-
-        # hint to the life checking thread so that it won't enable the button by force
-        isUploadProcessHappening = True
-
-        # disable browse button to prevent multiple browse windows
-        self.Browse_pushButton.setEnabled(False)
-
-        root.filepath = filedialog.askopenfilename(initialdir = "/",title = "Select file",filetype= ([("Elf files","*.elf")]))
-
-        # re-enable browse button
-        self.Browse_pushButton.setEnabled(True)
-
-        # hint to the life checking thread
-        isUploadProcessHappening = False
-
-        if root.filepath != '': # if any file is selected (user didn't press cancel)
-            file_path = root.filepath
+        # source: https://stackoverflow.com/questions/44075694/file-dialog-not-working-with-pyqt5
+        filePathAndName, fileFilter = QFileDialog.getOpenFileName(parent = None, caption = 'Select an ELF file', dir = os.path.dirname(file_path), filter = 'ELF file (*.elf)')
+        
+        if filePathAndName != '': # if any file is selected (user didn't press cancel)
+            file_path = filePathAndName
 
         if file_path != '': # if this variable holds anything (initialized with any filepath)
             self.lineEdit_2.setText(QCoreApplication.translate("MainWindow", os.path.basename(file_path), None))
@@ -483,6 +464,7 @@ class Ui_MainWindow(object):
         self.uploadThreadStopReceiver()
 
         QApplication.quit()
+
 
 
 # flashing progress thread
