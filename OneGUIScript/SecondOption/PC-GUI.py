@@ -273,7 +273,6 @@ class Ui_MainWindow(object):
             isUploadProcessHappening = False
 
 
-
     def setUploadBtnState(self, state):
         self.Upload_pushButton.setEnabled(state)
 
@@ -348,7 +347,7 @@ class Ui_MainWindow(object):
         self.lineEdit_2.setText(QCoreApplication.translate("MainWindow", u"No ELF file selected", None))
         
     # retranslateUi
-    
+
 
     def Upload_Handler(self):
         global file_path
@@ -386,9 +385,11 @@ class Ui_MainWindow(object):
         global user_db_dir
         global isUploadProcessHappening
         global isUserAlive
+        global QHWND
 
         userChoice = 0
         ElfProgress = 0
+        maxRequests = 0
 
         # trap until admin token refresh thread is over/done
         while isTokenRefreshThreadActive == True:
@@ -396,6 +397,12 @@ class Ui_MainWindow(object):
 
         if isForcePrompt == False: # if we're not forcing the prompt, then get the last progress from database
             ElfProgress = db.child(user_db_dir + "/elfProgress").get(admin_tokenId).val()
+            maxRequests = db.child(user_db_dir + "/elfProgressMaxRequest").get(admin_tokenId).val()
+            
+            if ElfProgress >= maxRequests: # solves the issue on successful flashing but elfProgress was not cleared due to disconnect
+                # reset elfProgress in database
+                db.child(user_db_dir).update({"elfProgress" : 0}, admin_tokenId)
+                return
 
         if ElfProgress != 0 or isForcePrompt == True: # if the database has an old progress or we want to force the prompt
             # raise the global flag to hint to the life checker thread
@@ -410,7 +417,8 @@ class Ui_MainWindow(object):
             # disable combobox
             self.comboBox.setEnabled(False)
 
-            userChoice = windll.user32.MessageBoxW(0, "Attempt to resume ?", "Error in previous flashing process", 4)
+            userChoice = windll.user32.MessageBoxW(QHWND, "Attempt to resume ?", "Error in previous flashing process", 4)
+
             if userChoice == 6: # yes, attempt to resume
                 # set the isNewElf flag so that the RPi would attempt to re-flash
                 db.child(user_db_dir).update({"isNewElf" : 1}, admin_tokenId)
@@ -463,6 +471,7 @@ class Ui_MainWindow(object):
 
     def cleanUp(self): # terminate all running threads before exiting
         # source: https://www.programcreek.com/python/example/104819/PyQt5.QtWidgets.QApplication.quit
+
         # stop life check thread
         if self.userLifeAttributes.isRunning() == True:
             self.userLifeAttributes.stop()
@@ -527,7 +536,7 @@ class FlashingProgressThread(QtCore.QThread):
                 self.updateProgress.emit(ElfProgress, maxRequests)
 
                 if ElfProgress >= maxRequests: # if finished (progress reached max requests)
-                    # update isNewElf flag in database
+                    # update elfProgress in database
                     db.child(user_db_dir).update({"elfProgress" : 0}, admin_tokenId)
                     
                     self.statusBarSignal.emit("color: rgb(0, 0, 0); background-color: rgb(115, 225, 120);", u"Flashing done")
@@ -574,7 +583,6 @@ class UserLifeRefresher(QtCore.QThread):
         global isUserAlive
         global isUploadProcessHappening
         global user_db_dir
-        global admin_tokenId
         
         errorCtr = 0
         wasPreviouslyOffline = True
@@ -704,6 +712,7 @@ class UploaderThread(QtCore.QThread):
 
 app = QApplication(sys.argv)
 window = QMainWindow()
+QHWND = window.winId() # get the QWindow handle for MessageBoxW
 Form = Ui_MainWindow()
 Form.setupUi(window)
 window.show()
