@@ -10,6 +10,7 @@ os.environ['QT_SCALE_FACTOR'] = '1' # to set the application global scale factor
 import pyrebase
 import sys, time, threading
 import random
+import datetime
 from pathlib import Path
 from PySide2.QtCore import (QCoreApplication, QMetaObject, QObject, QPoint, QThread, QRect, QSize, QUrl, Qt)
 from PySide2.QtGui import (QBrush, QColor, QConicalGradient, QFont,
@@ -71,6 +72,16 @@ INSTRUCTION_WRITE_MAX_REQUESTS    = -4
 INSTRUCTION_COMM_TIMEOUT          = -2
 INSTRUCTION_TERMINATE_ON_SUCCESS  = -3
 
+RPI_COMM_ERROR_SUCCESS                        =  0
+RPI_COMM_ERROR_COULDNT_OPEN_UART              = -1
+RPI_COMM_ERROR_COULDNT_OPEN_INFO_FILE         = -2
+RPI_COMM_ERROR_COULDNT_OPEN_DATA_FILE         = -3
+RPI_COMM_ERROR_COULDNT_OPEN_TEXT_FILE         = -4
+RPI_COMM_ERROR_COULDNT_OPEN_INSTRUCTIONS_FILE = -5
+RPI_COMM_ERROR_COULDNT_OPEN_PROGRESS_FILE     = -6
+RPI_COMM_ERROR_ACK_TIMEDOUT                   = -7
+RPI_COMM_ERROR_APP_SIZE_LARGE                 = -8
+
 isTokenRefreshThreadActive = False
 isUserAlive = False
 
@@ -119,12 +130,12 @@ class Ui_MainWindow(object):
         self.Browse_pushButton.setObjectName(u"Browse_pushButton")
         self.Browse_pushButton.setGeometry(QRect(420, 120, 112, 41))
         self.Browse_pushButton.setFont(font)
-        self.Browse_pushButton.setStyleSheet(u"background-color: rgb(97, 144, 200);")
+        self.Browse_pushButton.setStyleSheet(u"background-color: rgb(117, 162, 191);")
         self.Upload_pushButton = QPushButton(self.centralwidget)
         self.Upload_pushButton.setObjectName(u"Upload_pushButton")
         self.Upload_pushButton.setGeometry(QRect(420, 190, 112, 41))
         self.Upload_pushButton.setFont(font)
-        self.Upload_pushButton.setStyleSheet(u"background-color: rgb(97, 144, 200);")
+        self.Upload_pushButton.setStyleSheet(u"background-color: rgb(117, 162, 191);")
         self.comboBox = QComboBox(self.centralwidget)
 
         # add all users name to the combobox
@@ -139,7 +150,7 @@ class Ui_MainWindow(object):
         font1 = QFont()
         font1.setPointSize(10)
         self.comboBox.setFont(font1)
-        self.comboBox.setStyleSheet(u"background-color: rgb(97, 144, 200);")
+        self.comboBox.setStyleSheet(u"background-color: rgb(117, 162, 191);")
         self.label = QLabel(self.centralwidget)
         self.label.setObjectName(u"label")
         self.label.setGeometry(QRect(410, 20, 111, 20))
@@ -367,16 +378,60 @@ class Ui_MainWindow(object):
         global isUploadProcessHappening
         global isUserAlive
         global QHWND
+        global RPI_COMM_ERROR_SUCCESS
+        global RPI_COMM_ERROR_COULDNT_OPEN_UART
+        global RPI_COMM_ERROR_COULDNT_OPEN_INFO_FILE
+        global RPI_COMM_ERROR_COULDNT_OPEN_DATA_FILE
+        global RPI_COMM_ERROR_COULDNT_OPEN_TEXT_FILE
+        global RPI_COMM_ERROR_COULDNT_OPEN_INSTRUCTIONS_FILE
+        global RPI_COMM_ERROR_COULDNT_OPEN_PROGRESS_FILE
+        global RPI_COMM_ERROR_ACK_TIMEDOUT
+        global RPI_COMM_ERROR_APP_SIZE_LARGE
+        global userNameUID
+        global currentUserUID
 
         userChoice = 0
         ElfProgress = 0
         maxRequests = 0
+        lastErrorCode = 1
 
         # trap until admin token refresh thread is over/done
         while isTokenRefreshThreadActive == True:
             time.sleep(0.05) # wait 50ms
 
-        if isForcePrompt == False: # if we're not forcing the prompt, then get the last progress from database
+        # always get the last error code because it's displayed in the error message
+        lastErrorCode = db.child(user_db_dir + "/lastErrorCode").get(admin_tokenId).val()
+        errorString = 'unknown error'
+        if lastErrorCode == RPI_COMM_ERROR_SUCCESS:
+            errorString = 'flashing success'
+        elif lastErrorCode == RPI_COMM_ERROR_COULDNT_OPEN_UART:
+            errorString = "RPi couldn't get a handle to UART"
+        elif lastErrorCode == RPI_COMM_ERROR_COULDNT_OPEN_INFO_FILE:
+            errorString = "RPi couldn't open INFO file"
+        elif lastErrorCode == RPI_COMM_ERROR_COULDNT_OPEN_DATA_FILE:
+            errorString = "RPi couldn't open DATA file"
+        elif lastErrorCode == RPI_COMM_ERROR_COULDNT_OPEN_TEXT_FILE:
+            errorString = "RPi couldn't open TEXT file"
+        elif lastErrorCode == RPI_COMM_ERROR_COULDNT_OPEN_INSTRUCTIONS_FILE:
+            errorString = "RPi couldn't open INSTRUCTIONS file"
+        elif lastErrorCode == RPI_COMM_ERROR_COULDNT_OPEN_PROGRESS_FILE:
+            errorString = "RPi couldn't open PROGRESS file"
+        elif lastErrorCode == RPI_COMM_ERROR_ACK_TIMEDOUT:
+            errorString = "RPi timedout while flashing"
+        elif lastErrorCode == RPI_COMM_ERROR_APP_SIZE_LARGE:
+            errorString = "application size won't fit"
+        
+        dateTimeInfo = datetime.datetime.now()
+        
+        logFile = open('errorcode_log.txt', 'a+')
+        logFile.write( '%d-%d-%d, %d:%d:%d, Name = "%s", UID = "%s", last error: [%d] ==> %s\n'
+                      %(dateTimeInfo.year, dateTimeInfo.month, dateTimeInfo.day,
+                        dateTimeInfo.hour, dateTimeInfo.minute, dateTimeInfo.second,
+                        self.comboBox.currentText(), currentUserUID,
+                        lastErrorCode, errorString) )
+        logFile.close()
+
+        if isForcePrompt == False: # if we're not forcing the prompt, then get the last progress and last error from database
             ElfProgress = db.child(user_db_dir + "/elfProgress").get(admin_tokenId).val()
             maxRequests = db.child(user_db_dir + "/elfProgressMaxRequest").get(admin_tokenId).val()
             
@@ -385,7 +440,8 @@ class Ui_MainWindow(object):
                 db.child(user_db_dir).update({"elfProgress" : 0}, admin_tokenId)
                 return
 
-        if ElfProgress != 0 or isForcePrompt == True: # if the database has an old progress or we want to force the prompt
+        # if the database has an old progress or we want to force the prompt or lastErrorCode was not success
+        if ElfProgress != 0 or isForcePrompt == True or lastErrorCode != RPI_COMM_ERROR_SUCCESS:
             # raise the global flag to hint to the life checker thread
             isUploadProcessHappening = True
 
@@ -398,10 +454,14 @@ class Ui_MainWindow(object):
             # disable combobox
             self.comboBox.setEnabled(False)
 
-            userChoice = windll.user32.MessageBoxW(QHWND, "Attempt to resume ?", "Error in previous flashing process", 4)
+            userChoice = windll.user32.MessageBoxW(QHWND, "Attempt to resume (last error code = %d) ?" %(lastErrorCode), "Error in previous flashing process", 4)
 
             if userChoice == 6: # yes, attempt to resume
                 # set the isNewElf flag so that the RPi would attempt to re-flash
+                # and set isUserAcceptedUpdate to -1 until the RPi accepts/denys the update (will set it to 1/0)
+                # also set lastErrorCode to 1 since the RPi will put the real error code after flashing
+                db.child(user_db_dir).update({"lastErrorCode" : 1}, admin_tokenId)
+                db.child(user_db_dir).update({"isUserAcceptedUpdate" : -1}, admin_tokenId)
                 db.child(user_db_dir).update({"isNewElf" : 1}, admin_tokenId)
 
                 # start the flashing progress thread
@@ -413,8 +473,9 @@ class Ui_MainWindow(object):
                 # hint to the life checker thread so that it enables the upload and browse buttons
                 isUploadProcessHappening = False
 
-                # reset the isNewElf flag
+                # reset the isNewElf flag and lastErrorCode
                 db.child(user_db_dir).update({"elfProgress" : 0}, admin_tokenId)
+                db.child(user_db_dir).update({"lastErrorCode" : RPI_COMM_ERROR_SUCCESS}, admin_tokenId)
 
 
     def on_combobox_changed(self, value):
@@ -480,30 +541,44 @@ class FlashingProgressThread(QtCore.QThread):
     def run(self):
         global user_db_dir
         global admin_tokenId
+        global RPI_COMM_ERROR_SUCCESS
 
         timeoutCtr = 0
         isTerminate = 0
         ElfProgress = 0
+        maxRequests = -1
         previousElfProgress = -1
+        isUserAcceptedUpdate = -1
 
         exitState = True # initially assume no error
 
+        self.updateProgress.emit(-1, 0)
+        self.statusBarSignal.emit("color: rgb(0, 0, 0); background-color: rgb(255, 255, 170);", u"Waiting user...")
+
+        # wait for user to accept/deny the update (the isUserAcceptedUpdate flag will then be set to 1/0)
+        while isUserAcceptedUpdate == -1:
+            isUserAcceptedUpdate = db.child(user_db_dir + "/isUserAcceptedUpdate").get(admin_tokenId).val()
+            time.sleep(0.5)
+    
+        if isUserAcceptedUpdate == False: # if user denied the update
+            maxRequests = 0
+            isTerminate = 1
+            self.statusBarSignal.emit("color: rgb(0, 0, 0); background-color: rgb(245, 135, 140);", u"Update denied")
+
         # get max number of requests from server
-        while True:
+        while maxRequests == -1:
             time.sleep(0.1) # 100ms
             maxRequests = db.child(user_db_dir + "/elfProgressMaxRequest").get(admin_tokenId).val()
-            if maxRequests != -1:
-                timeoutCtr = 0
-                break
-            else: # if RPi communicator didn't update value
+            if maxRequests == -1: # if RPi communicator didn't update value
                 timeoutCtr = timeoutCtr + 1
+            else:
+                timeoutCtr = 0
 
             if timeoutCtr == 20: #2000ms, if timed out
                 exitState = False
                 isTerminate = 1 # set the flag to skip next loop
                 self.updateProgress.emit(-1, 0)
                 self.statusBarSignal.emit("color: rgb(0, 0, 0); background-color: rgb(245, 135, 140);", u"Flashing timeout")
-                break
 
         if isTerminate == 0: # if no error occurred when getting max requests from server
             self.updateProgress.emit(0, maxRequests)
@@ -667,8 +742,13 @@ class UploaderThread(QtCore.QThread):
         # upload file
         storage.child(cloud_file).put(file_path, admin_tokenId)
 
-        # update isNewElf flag in database and set elfProgressMaxRequest to -1 (arbitrary value)
+        # set isNewElf flag so that the RPi would know that there's a new update
+        # also set elfProgressMaxRequest to -1 as an arbitrary value
+        # and set isUserAcceptedUpdate to -1 until the RPi accepts/denys the update (will set it to 1/0)
+        # and set lastErrorCode to 1
         db.child(user_db_dir).update({"elfProgressMaxRequest" : -1}, admin_tokenId)
+        db.child(user_db_dir).update({"isUserAcceptedUpdate" : -1}, admin_tokenId)
+        db.child(user_db_dir).update({"lastErrorCode" : 1}, admin_tokenId)
         db.child(user_db_dir).update({"isNewElf" : 1}, admin_tokenId)
         
         isNewElf = db.child(user_db_dir + "/isNewElf").get(admin_tokenId).val()
