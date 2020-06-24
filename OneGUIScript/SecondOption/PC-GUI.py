@@ -270,14 +270,14 @@ class Ui_MainWindow(object):
         # stop flashing progress thread
         self.flashingProgressThreadStopReceiver()
 
-        if state == False: # if an error occured when flashing, force prompt
-            self.promptIfPreviousFlashError(True)
-        else: # if flashing succeeded
+        if state == True: # if flashing succeeded
             # enable combobox
             self.comboBox.setEnabled(True)
 
             # hint to the life checker thread so that it enables the upload and browse buttons
             isUploadProcessHappening = False
+            
+        self.promptIfPreviousFlashError(False)
 
 
     def setUploadBtnState(self, state):
@@ -331,7 +331,8 @@ class Ui_MainWindow(object):
         self.Browse_pushButton.setText(QCoreApplication.translate("MainWindow", u"Browse", None))
         self.Upload_pushButton.setText(QCoreApplication.translate("MainWindow", u"Upload", None))
 
-        self.label.setText(QCoreApplication.translate("MainWindow", u"         Users list", None))
+        #self.label.setText(QCoreApplication.translate("MainWindow", u"         Users list", None))
+        self.label.setText(QCoreApplication.translate("MainWindow", u"   Cars models list", None))
         self.label_2.setText(QCoreApplication.translate("MainWindow", u"  Status", None))
         self.label_3.setText(QCoreApplication.translate("MainWindow", u"  Current file", None))
         self.lineEdit.setStyleSheet("color: rgb(0, 0, 0); background-color: rgb(255, 255, 255);")
@@ -420,6 +421,8 @@ class Ui_MainWindow(object):
             errorString = "RPi timedout while flashing"
         elif lastErrorCode == RPI_COMM_ERROR_APP_SIZE_LARGE:
             errorString = "application size won't fit"
+        elif lastErrorCode == 1:
+            errorString = "no response from RPi"
         
         dateTimeInfo = datetime.datetime.now()
         
@@ -609,6 +612,9 @@ class FlashingProgressThread(QtCore.QThread):
                 self.statusBarSignal.emit("color: rgb(0, 0, 0); background-color: rgb(245, 135, 140);", u"Flashing timeout")
                 
                 isTerminate = 1
+
+        # give sometime so that RPi can respond
+        time.sleep(1)
 
         self.exitSignal.emit(exitState)
 
